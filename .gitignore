@@ -1,0 +1,38 @@
+# Node / package manager
+node_modules/
+npm-debug.log*
+yarn-error.log
+.pnpm-debug.log
+
+# Build outputs
+dist/
+build/
+.cache/
+.parcel-cache/
+out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Editor directories and files
+.vscode/
+.idea/
+.history/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Coverage and virtual envs
+coverage/
+.nyc_output/
+.pytest_cache/
+venv/
+.venv/

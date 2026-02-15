@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en" data-style="command" data-theme="midnight">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GWTF — G-code Designer</title>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/feather-icons@4.29.1/dist/feather.min.js"></script>
+<link rel="stylesheet" href="./styles/app.css">
+<link rel="stylesheet" href="./styles/themes.css">
+</head>
+<body>
+
+<!-- ================================================================
+     LANDING PAGE
+     ================================================================ -->
+<section class="landing" id="landing">
+
+  <!-- Nav -->
+  <nav class="nav">
+    <a class="nav-brand" href="#">
+      <span class="nav-logo">GW</span>
+      <span class="nav-name">GWTF</span>
+    </a>
+    <div class="nav-center">
+      <a href="#features">Features</a>
+      <a href="#process">Process</a>
+    </div>
+    <div class="nav-actions">
+      <div class="style-picker" id="style-picker">
+        <button class="style-picker-btn" onclick="toggleStylePicker()" title="Change UI style &amp; theme">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span class="style-picker-label" id="style-picker-label">Command</span>
+        </button>
+        <div class="style-picker-dropdown" id="style-dropdown">
+          <div class="spd-section">
+            <span class="spd-title">Layout</span>
+            <button class="style-opt active" data-style="command" onclick="setUIStyle('command')">
+              <span class="style-opt-preview"><span class="sop sop-command"></span></span>
+              <div><strong>Command</strong><span>Sidebar + toolbar</span></div>
+            </button>
+            <button class="style-opt" data-style="float" onclick="setUIStyle('float')">
+              <span class="style-opt-preview"><span class="sop sop-float"></span></span>
+              <div><strong>Float</strong><span>Glassmorphic panels</span></div>
+            </button>
+            <button class="style-opt" data-style="drawer" onclick="setUIStyle('drawer')">
+              <span class="style-opt-preview"><span class="sop sop-drawer"></span></span>
+              <div><strong>Drawer</strong><span>Hidden sidebar</span></div>
+            </button>
+            <button class="style-opt" data-style="horizon" onclick="setUIStyle('horizon')">
+              <span class="style-opt-preview"><span class="sop sop-horizon"></span></span>
+              <div><strong>Horizon</strong><span>Bottom settings grid</span></div>
+            </button>
+          </div>
+          <div class="spd-section">
+            <span class="spd-title">Color</span>
+            <div class="color-row">
+              <button class="color-opt active" data-theme="midnight" onclick="setTheme('midnight')" title="Midnight"><span style="background:linear-gradient(135deg,#0f1117,#6c8cff)"></span></button>
+              <button class="color-opt" data-theme="cyberpunk" onclick="setTheme('cyberpunk')" title="Cyberpunk"><span style="background:linear-gradient(135deg,#0d0a1a,#ff2eaa)"></span></button>
+              <button class="color-opt" data-theme="forest" onclick="setTheme('forest')" title="Forest"><span style="background:linear-gradient(135deg,#0f1a0f,#5cb85c)"></span></button>
+              <button class="color-opt" data-theme="arctic" onclick="setTheme('arctic')" title="Arctic"><span style="background:linear-gradient(135deg,#f4f6fa,#3366ff)"></span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="document.getElementById('designer').scrollIntoView({behavior:'smooth'})">Launch Designer</button>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-text">
+      <span class="hero-tag">Open-source &middot; Vase-mode &middot; Zero seams</span>
+      <h1>Design <em>seamless spirals</em> for 3D&nbsp;printing.</h1>
+      <p>GWTF generates vase-mode G-code with smooth helical toolpaths, parametric wave textures, and live 3D preview&nbsp;&mdash; all in your browser.</p>
+      <div class="hero-cta">
+        <button class="btn btn-primary btn-lg" onclick="document.getElementById('designer').scrollIntoView({behavior:'smooth'})">Open Designer</button>
+        <button class="btn btn-outline btn-lg" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">How it works</button>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="hero-orb">
+        <div class="orb-ring r1"></div>
+        <div class="orb-ring r2"></div>
+        <div class="orb-ring r3"></div>
+        <div class="orb-dot d1"></div>
+        <div class="orb-dot d2"></div>
+        <div class="orb-dot d3"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics">
+    <div class="metric"><strong>1</strong><span>Continuous Path</span></div>
+    <div class="metric"><strong>&infin;</strong><span>Wave Patterns</span></div>
+    <div class="metric"><strong>3D</strong><span>Live Preview</span></div>
+    <div class="metric"><strong>0</strong><span>Seam Lines</span></div>
+  </div>
+
+  <!-- Features -->
+  <section class="section" id="features">
+    <div class="section-head">
+      <h2>What GWTF does</h2>
+      <p>A specialized platform for spiral vase-mode printing with advanced toolpath control.</p>
+    </div>
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-icon"><i data-feather="layers"></i></div>
+        <h3>Seamless Helix</h3>
+        <p>A single toolpath rises gradually — no stopping, no seams, no artifacts.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon"><i data-feather="activity"></i></div>
+        <h3>Wave Patterns</h3>
+        <p>Blend sine, square, and triangle waves with interference for organic textures.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon"><i data-feather="droplet"></i></div>
+        <h3>Blob Mode</h3>
+        <p>Injection-molding style blobs for unique textured surfaces and dot patterns.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon"><i data-feather="eye"></i></div>
+        <h3>3D Preview</h3>
+        <p>Interactive viewport with playback simulation, layer scrubbing, and speed controls.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Process -->
+  <section class="section" id="process">
+    <div class="section-head">
+      <h2>Three steps to print</h2>
+      <p>Customize, preview, and export — no external slicer needed for vase-mode shapes.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div><h4>Choose a preset</h4><p>Pick vase, lampshade, or blob mode to load tuned parameters.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div><h4>Refine geometry</h4><p>Tweak dimensions, wave patterns, Z-contour, and print settings.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div><h4>Preview &amp; export</h4><p>Inspect the spiral toolpath in 3D, then download the G-code file.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="landing-cta">
+    <h2>Ready to design your next seamless print?</h2>
+    <button class="btn btn-primary btn-lg" onclick="document.getElementById('designer').scrollIntoView({behavior:'smooth'})">Open GWTF Designer</button>
+  </div>
+</section>
+
+<!-- ================================================================
+     DESIGNER
+     ================================================================ -->
+<section class="designer-section" id="designer">
+<div class="app">
+
+  <!-- Drawer overlay (for float/drawer layouts) -->
+  <div class="drawer-overlay" id="drawer-overlay" onclick="toggleSettingsPanel()"></div>
+
+  <!-- ── App Toolbar ── -->
+  <header class="app-toolbar">
+    <div class="app-toolbar-left">
+      <button class="settings-toggle" id="settings-toggle" onclick="toggleSettingsPanel()" title="Toggle settings" aria-label="Toggle settings panel">
+        <i data-feather="menu"></i>
+      </button>
+      <div class="app-brand">
+        <span class="app-logo">GW</span>
+        <span class="app-title">GWTF</span>
+      </div>
+    </div>
+    <div class="app-toolbar-center">
+      <div class="design-tabs">
+        <div class="design-tab-group">
+          <button class="design-tab active" data-design="vase" onclick="selectDesignTab(this)" title="Vase mode presets">
+            <i data-feather="box"></i> <span class="tab-label">Vase</span>
+          </button>
+          <div class="design-tab-submenu" id="vase-submenu">
+            <button class="design-subtab active" data-design="vase" onclick="selectDesignTab(this)">
+              <i data-feather="box"></i> Vase Mode
+            </button>
+            <button class="design-subtab" data-design="imvase" onclick="selectDesignTab(this)">
+              <i data-feather="droplet"></i> Blob Mode
+            </button>
+            <button class="design-subtab" data-design="lampshade" onclick="selectDesignTab(this)">
+              <i data-feather="aperture"></i> Lamp Shade
+            </button>
+          </div>
+        </div>
+        <button class="design-tab" data-design="custom" onclick="selectDesignTab(this)" title="Custom presets">
+          <i data-feather="plus-circle"></i> <span class="tab-label">Custom</span>
+        </button>
+      </div>
+    </div>
+    <div class="app-toolbar-right">
+      <button class="btn btn-icon" onclick="resetDefaults()" title="Reset"><i data-feather="rotate-ccw"></i></button>
+      <button class="btn btn-icon" onclick="document.getElementById('gcode-upload').click()" title="Import G-code"><i data-feather="upload"></i></button>
+      <input type="file" id="gcode-upload" accept=".gcode,.gco,.nc" style="display:none" onchange="importGcode(event)">
+      <div class="generate-wrap" id="generate-wrap">
+        <button class="btn btn-primary btn-action" onclick="generate()" id="btn-generate"><i data-feather="play"></i> <span>Generate</span></button>
+        <div class="generate-dropdown" id="generate-dropdown">
+          <div class="gen-opt-row">
+            <label class="gen-opt-label" for="auto-generate-toggle">Auto-generate</label>
+            <label class="toggle-switch"><input type="checkbox" id="auto-generate-toggle" checked onchange="toggleAutoGenerate(this.checked)"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="gen-opt-row">
+            <label class="gen-opt-label" for="auto-generate-delay">Delay (ms)</label>
+            <input type="number" id="auto-generate-delay" value="500" min="100" max="5000" step="100" class="gen-delay-input" onchange="setAutoGenerateDelay(this.value)">
+          </div>
+        </div>
+      </div>
+      <div class="download-wrap" id="download-wrap">
+        <button class="btn btn-secondary btn-action" onclick="downloadGcode()" id="btn-download"><i data-feather="download"></i> <span>Download</span></button>
+        <div class="download-dropdown" id="download-dropdown">
+          <label class="download-dropdown-label">Filename</label>
+          <div class="download-filename-row">
+            <input type="text" id="download-filename" value="vase_wavy" spellcheck="false" oninput="saveDownloadFilename(this.value)">
+            <span class="download-ext">.gcode</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Custom Feature Panels (shown when custom tab active) ── -->
+  <div class="design-panels">
+    <div class="designbar">
+      <div class="designbar-left"></div>
+      <div class="designbar-right">
+        <button class="btn btn-secondary btn-sm" onclick="exportFeatureLibrary()"><i data-feather="download"></i> Export</button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('feature-upload').click()"><i data-feather="upload"></i> Import</button>
+        <input type="file" id="feature-upload" accept=".json" style="display:none" onchange="importFeatureLibrary(event)">
+      </div>
+    </div>
+    <div class="design-panel" id="design-panel-custom">
+      <div class="custom-feature-grid">
+        <div class="custom-feature-editor">
+          <div class="custom-feature-header"><h4>Custom Feature Draft</h4><span>Define a preset using JSON.</span></div>
+          <textarea id="feature-json" rows="12">{
+  "name": "Spiral Bloom",
+  "description": "Tall vase with soft waves",
+  "icon": "star",
+  "settings": {
+    "outerD": 110, "topOuterD": 110, "height": 180,
+    "holeD": 0, "baseLayers": 3, "gradualLayers": 6,
+    "waveAmp": 1.8, "waveCount": 16, "waveShape": 0.3,
+    "interference": 0.9, "zWaveAmp": 0.8, "zWaveCycles": 1.5,
+    "layerHeight": 0.45, "lineWidth": 1.6, "printSpeed": 24
+  }
+}</textarea>
+          <div class="custom-feature-actions">
+            <button class="btn btn-secondary" onclick="applyCustomFeatureFromEditor()"><i data-feather="play"></i> Apply Draft</button>
+            <button class="btn btn-primary" onclick="saveCustomFeature()"><i data-feather="save"></i> Save Feature</button>
+          </div>
+        </div>
+        <div class="custom-feature-library">
+          <div class="custom-feature-header"><h4>Saved Features</h4><span>Stored in your browser.</span></div>
+          <div id="custom-feature-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Settings Panel (sidebar / drawer / floating / grid) ── -->
+  <aside class="settings-panel" id="sidebar">
+
+    <!-- Geometry -->
+    <div class="param-section" id="sec-geometry">
+      <div class="param-section-header" onclick="toggleSection('sec-geometry')">
+        <h3><i data-feather="box"></i> Geometry</h3>
+        <i data-feather="chevron-down" class="section-chevron"></i>
+      </div>
+      <div class="param-section-body">
+        <div class="field-row">
+          <div class="field">
+            <label>Bottom Diameter (mm)</label>
+            <input type="number" id="outer_d" value="100" min="10" max="500" step="1" oninput="clampHoleDiameter()">
+          </div>
+          <div class="field">
+            <label>Top Diameter (mm)</label>
+            <input type="number" id="top_outer_d" value="100" min="10" max="500" step="1">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Height (mm)</label>
+            <input type="number" id="height" value="150" min="10" max="500" step="1">
+          </div>
+          <div class="field" id="field-hole-d">
+            <label>Hole Diameter (mm)</label>
+            <input type="number" id="hole_d" value="39" min="0" step="0.5" oninput="clampHoleDiameter()">
+          </div>
+        </div>
+        <div class="field">
+          <label>Base Layers <span class="val" id="base_layers_val">3</span></label>
+          <input type="range" id="base_layers" value="3" min="1" max="10" step="1"
+                 oninput="document.getElementById('base_layers_val').textContent=this.value">
+        </div>
+        <div class="field">
+          <label>Gradual Vase Layers <span class="val" id="gradual_layers_val">5</span></label>
+          <input type="range" id="gradual_layers" value="5" min="0" max="20" step="1"
+                 oninput="document.getElementById('gradual_layers_val').textContent=this.value">
+        </div>
+      </div>
+    </div>
+
+    <!-- Wave Pattern -->
+    <div class="param-section" id="sec-wave">
+      <div class="param-section-header" onclick="toggleSection('sec-wave')">
+        <h3><i data-feather="activity"></i> Wave Pattern</h3>
+        <i data-feather="chevron-down" class="section-chevron"></i>
+      </div>
+      <div class="param-section-body">
+        <div class="field-row">
+          <div class="field">
+            <label>Amplitude (mm)</label>
+            <input type="number" id="wave_amp" value="1.5" min="0" max="30" step="0.1">
+          </div>
+          <div class="field">
+            <label>Wave Count</label>
+            <input type="number" id="wave_count" value="14" min="0" max="100" step="1">
+          </div>
+        </div>
+        <div class="field">
+          <label>Wave Shape <span class="val" id="wave_shape_val">0.00 (sine)</span></label>
+          <input type="range" id="wave_shape" value="0" min="0" max="1" step="0.01"
+                 oninput="const v=parseFloat(this.value); document.getElementById('wave_shape_val').textContent=v.toFixed(2)+(v<=0.05?' (sine)':v<0.45?' (blend)':v<=0.55?' (square)':v<0.95?' (blend)':' (triangle)')">
+        </div>
+        <div class="field">
+          <label>Interference <span class="val" id="interference_val">1.00 (max gap)</span></label>
+          <input type="range" id="interference" value="1" min="0" max="1" step="0.01"
+                 oninput="document.getElementById('interference_val').textContent=parseFloat(this.value).toFixed(2)+(this.value<0.1?' (aligned)':this.value>0.9?' (max gap)':'')">
+        </div>
+        <div class="subsection-divider"></div>
+        <div class="subsection-label"><i data-feather="clock"></i> Slow Down Zones</div>
+        <div class="field-row">
+          <div class="field">
+            <label>Dwell Time (ms)</label>
+            <input type="number" id="slow_down_time_ms" value="0" min="0" max="5000" step="10">
+          </div>
+          <div class="field">
+            <label>Ramp Length (mm)</label>
+            <input type="number" id="slow_down_length_mm" value="0" min="0" max="50" step="0.5">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Z-Wave Contour -->
+    <div class="param-section collapsed" id="sec-zwave">
+      <div class="param-section-header" onclick="toggleSection('sec-zwave')">
+        <h3><i data-feather="trending-up"></i> Z-Wave Contour</h3>
+        <i data-feather="chevron-down" class="section-chevron"></i>
+      </div>
+      <div class="param-section-body">
+        <div class="field-row">
+          <div class="field">
+            <label>Z Wave Amp (mm)</label>
+            <input type="number" id="z_wave_amp" value="0" min="-50" max="50" step="0.5">
+          </div>
+          <div class="field">
+            <label>Z Wave Cycles</label>
+            <input type="number" id="z_wave_cycles" value="0" min="0" max="20" step="0.5">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Print Settings -->
+    <div class="param-section" id="sec-print">
+      <div class="param-section-header" onclick="toggleSection('sec-print')">
+        <h3><i data-feather="sliders"></i> Print Settings</h3>
+        <i data-feather="chevron-down" class="section-chevron"></i>
+      </div>
+      <div class="param-section-body">
+        <input type="hidden" id="wall_mode" value="vase">
+        <div class="subsection-label accent">BASE LAYERS</div>
+        <div class="field">
+          <label>Base Pattern</label>
+          <select id="base_pattern">
+            <option value="concentric">Concentric (spiral)</option>
+            <option value="rectilinear">Rectilinear (lines)</option>
+            <option value="grid">Grid (cross-hatch)</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Layer Height (mm)</label><input type="number" id="base_layer_height" value="0.20" min="0.05" max="1.0" step="0.05"></div>
+          <div class="field"><label>Line Width (mm)</label><input type="number" id="base_line_width" value="0.4" min="0.2" max="5.0" step="0.1"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Flow Multiplier</label><input type="number" id="base_flow" value="1.0" min="0.1" max="2.0" step="0.05"></div>
+          <div class="field"><label>Filament Diameter (mm)</label><input type="number" id="filament_d" value="1.75" min="1.0" max="3.0" step="0.05"></div>
+        </div>
+        <div class="subsection-label accent">WALL (VASE MODE)</div>
+        <div class="field-row">
+          <div class="field"><label>Layer Height (mm)</label><input type="number" id="layer_height" value="0.45" min="0.05" max="1.0" step="0.05"></div>
+          <div class="field"><label>Line Width (mm)</label><input type="number" id="line_width" value="1.9" min="0.2" max="5.0" step="0.1"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Flow Multiplier</label><input type="number" id="flow" value="1.0" min="0.1" max="2.0" step="0.05"></div>
+          <div class="field">
+            <label>Seam Alignment</label>
+            <select id="seam_align">
+              <option value="aligned">Aligned</option>
+              <option value="staggered">Staggered</option>
+              <option value="random">Random</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Temperature & Speed -->
+    <div class="param-section collapsed" id="sec-temp">
+      <div class="param-section-header" onclick="toggleSection('sec-temp')">
+        <h3><i data-feather="thermometer"></i> Temperature &amp; Speed</h3>
+        <i data-feather="chevron-down" class="section-chevron"></i>
+      </div>
+      <div class="param-section-body">
+        <div class="subsection-label accent">BASE LAYERS</div>
+        <div class="field-row">
+          <div class="field"><label>Nozzle Temp (°C)</label><input type="number" id="base_nozzle_temp" value="220" min="150" max="300" step="5"></div>
+          <div class="field"><label>Bed Temp (°C)</label><input type="number" id="base_bed_temp" value="60" min="0" max="120" step="5"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Print Speed (mm/s)</label><input type="number" id="base_print_speed" value="20" min="5" max="200" step="1"></div>
+          <div class="field"><label>Travel Speed (mm/s)</label><input type="number" id="travel_speed" value="120" min="20" max="300" step="5"></div>
+        </div>
+        <div class="subsection-label accent">WALL (VASE MODE)</div>
+        <div class="field-row">
+          <div class="field"><label>Nozzle Temp (°C)</label><input type="number" id="nozzle_temp" value="215" min="150" max="300" step="5"></div>
+          <div class="field"><label>Bed Temp (°C)</label><input type="number" id="bed_temp" value="60" min="0" max="120" step="5"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Print Speed (mm/s)</label><input type="number" id="print_speed" value="25" min="5" max="200" step="1"></div>
+          <div class="field"></div>
+        </div>
+        <div class="field">
+          <label>Fan <span class="val" id="fan_val">100%</span></label>
+          <input type="range" id="fan_percent" value="100" min="0" max="100" step="1"
+                 oninput="document.getElementById('fan_val').textContent=this.value+'%'">
+        </div>
+      </div>
+    </div>
+
+    <!-- IM-Vase Blob Settings -->
+    <div class="param-section" id="sec-blob" style="display:none;">
+      <div class="param-section-header" onclick="toggleSection('sec-blob')">
+        <h3><i data-feather="droplet"></i> Blob Settings</h3>
+        <i data-feather="chevron-down" class="section-chevron"></i>
+      </div>
+      <div class="param-section-body">
+        <div class="subsection-label accent">BLOB GEOMETRY</div>
+        <div class="field-row">
+          <div class="field"><label>Dots / Revolution</label><input type="number" id="blob_dots_per_rev" value="24" min="4" max="200" step="1"></div>
+          <div class="field"><label>Dot Height (mm)</label><input type="number" id="blob_dot_height" value="2.0" min="0.3" max="10" step="0.1"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Layer Offset (dots)</label><input type="number" id="blob_layer_offset" value="0.5" min="0" max="1" step="0.1"></div>
+          <div class="field"><label>Clearance Z (mm)</label><input type="number" id="blob_clearance_z" value="3.0" min="0.5" max="20" step="0.5"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Hops</label><input type="number" id="blob_hops" value="0" min="0" max="100" step="1"></div>
+          <div class="field"></div>
+        </div>
+        <div class="subsection-label accent">BLOB PATH</div>
+        <div class="field-row">
+          <div class="field"><label>Offset Start (mm)</label><input type="number" id="blob_offset_start" value="0" min="-10" max="10" step="0.1"></div>
+          <div class="field"><label>Offset End (mm)</label><input type="number" id="blob_offset_end" value="0" min="-10" max="10" step="0.1"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Blob Wave (-1…1)</label><input type="number" id="blob_wave" value="0" min="-1" max="1" step="0.05"></div>
+          <div class="field"></div>
+        </div>
+        <div class="subsection-label accent">EXTRUSION</div>
+        <div class="field-row">
+          <div class="field"><label>Material / Dot (mm)</label><input type="number" id="blob_dot_extrusion" value="4.0" min="0.1" max="30" step="0.5"></div>
+          <div class="field"><label>Extrude Speed (mm/s)</label><input type="number" id="blob_extrude_speed" value="2.0" min="0.5" max="20" step="0.5"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Dwell Time (ms)</label><input type="number" id="blob_dwell_ms" value="800" min="0" max="5000" step="50"></div>
+          <div class="field"></div>
+        </div>
+        <div class="subsection-label accent">RETRACTION</div>
+        <div class="field-row">
+          <div class="field"><label>Retract Length (mm)</label><input type="number" id="blob_retract_len" value="0" min="0" max="10" step="0.1"></div>
+          <div class="field"><label>Retract Speed (mm/s)</label><input type="number" id="blob_retract_speed" value="30" min="1" max="100" step="1"></div>
+        </div>
+        <div class="subsection-label accent">BLOB TEMP</div>
+        <div class="field-row">
+          <div class="field"><label>Nozzle Temp (°C)</label><input type="number" id="blob_nozzle_temp" value="230" min="150" max="300" step="5"></div>
+          <div class="field"><label>Fan %</label><input type="number" id="blob_fan_percent" value="30" min="0" max="100" step="5"></div>
+        </div>
+        <div class="subsection-label accent">VASE LAYERS ON BLOBS</div>
+        <div class="field-row">
+          <div class="field">
+            <label>Vase Layers</label>
+            <select id="blob_vase_layers" onchange="syncBlobVaseLayersUI()">
+              <option value="no">No</option>
+              <option value="yes">Yes</option>
+            </select>
+          </div>
+          <div class="field"></div>
+        </div>
+        <div id="blob-vase-layers-opts" style="display:none;">
+          <div class="field-row">
+            <div class="field"><label>Every N Blob Layers</label><input type="number" id="blob_vl_every_n" value="1" min="1" max="50" step="1"></div>
+            <div class="field"><label>Consecutive Layers</label><input type="number" id="blob_vl_count" value="1" min="0" max="999" step="1"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Wall Lines</label><input type="number" id="blob_vl_walls" value="1" min="1" max="20" step="1"></div>
+            <div class="field"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Line Width (mm)</label><input type="number" id="blob_vl_line_width" value="0.45" min="0.1" max="3" step="0.05"></div>
+            <div class="field"><label>Layer Height (mm)</label><input type="number" id="blob_vl_layer_height" value="0.2" min="0.05" max="1" step="0.05"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Print Speed (mm/s)</label><input type="number" id="blob_vl_print_speed" value="25" min="5" max="200" step="1"></div>
+            <div class="field"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advanced -->
+    <div class="param-section collapsed" id="sec-advanced">
+      <div class="param-section-header" onclick="toggleSection('sec-advanced')">
+        <h3><i data-feather="settings"></i> Advanced</h3>
+        <i data-feather="chevron-down" class="section-chevron"></i>
+      </div>
+      <div class="param-section-body">
+        <div class="field">
+          <label>Segments / Rev</label>
+          <input type="number" id="segments_per_rev" value="420" min="120" max="1000" step="10">
+        </div>
+        <div class="field">
+          <label>Bed Origin</label>
+          <select id="bed_origin">
+            <option value="center">Center (0,0 at bed center)</option>
+            <option value="corner">Corner (0,0 at front-left)</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Center X (mm)</label><input type="number" id="center_x" value="0" step="1"></div>
+          <div class="field"><label>Center Y (mm)</label><input type="number" id="center_y" value="0" step="1"></div>
+        </div>
+        <div class="field-check"><input type="checkbox" id="home" checked><label for="home">Home before print (G28)</label></div>
+        <div class="field-check"><input type="checkbox" id="absolute_e" checked><label for="absolute_e">Absolute extrusion (M82)</label></div>
+        <div class="subsection-divider"></div>
+        <div class="subsection-label"><i data-feather="zap"></i> Acceleration</div>
+        <div class="field-row">
+          <div class="field"><label>Print Accel (mm/s²)</label><input type="number" id="print_accel" value="500" min="50" max="20000" step="50"></div>
+          <div class="field"><label>Travel Accel (mm/s²)</label><input type="number" id="travel_accel" value="1000" min="50" max="20000" step="50"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Custom G-code -->
+    <div class="param-section collapsed" id="sec-custom-gcode">
+      <div class="param-section-header" onclick="toggleSection('sec-custom-gcode')">
+        <h3><i data-feather="terminal"></i> Custom G-code</h3>
+        <i data-feather="chevron-down" class="section-chevron"></i>
+      </div>
+      <div class="param-section-body">
+        <div class="field">
+          <label>Start G-code</label>
+          <textarea id="custom_start_gcode" rows="5" class="mono-textarea" placeholder="; Custom start G-code..."></textarea>
+        </div>
+        <div class="field">
+          <label>End G-code</label>
+          <textarea id="custom_end_gcode" rows="5" class="mono-textarea" placeholder="; Custom end G-code..."></textarea>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── Workspace ── -->
+  <div class="workspace">
+
+    <!-- View Switch -->
+    <div class="view-switch">
+      <button class="tab active" data-panel="panel-preview" onclick="switchTab(this)">
+        <i data-feather="eye"></i> <span>3D Preview</span>
+      </button>
+      <button class="tab" data-panel="panel-gcode" onclick="switchTab(this)">
+        <i data-feather="code"></i> <span>G-code</span>
+      </button>
+    </div>
+
+    <!-- 3D Preview Panel -->
+    <div class="panel active" id="panel-preview">
+      <div id="viewport">
+        <div class="generating-overlay" id="gen-overlay">
+          <div class="spinner"></div>
+          <span>Generating G-code…</span>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-panel collapsed" id="stats-panel">
+          <div class="stats-compact" id="stats-compact" onclick="toggleStatsPanel()">            <span class="status-indicator ready" id="status-dot"></span>            <div class="stats-compact-item"><i data-feather="clock" style="width:12px;height:12px;"></i><span id="stat-print-time-compact">—</span></div>
+            <div class="stats-compact-item"><i data-feather="box" style="width:12px;height:12px;"></i><span id="stat-weight-compact">—</span></div>
+            <button class="stats-expand-btn" title="Toggle stats"><i data-feather="chevron-down" class="stats-chevron"></i></button>
+          </div>
+          <div class="stats-details" id="stats-details">
+            <div class="stats-header"><h4>Print Statistics</h4><button class="stats-toggle" onclick="toggleStatsPanel()"><i data-feather="minimize-2"></i></button></div>
+            <div class="stats-section">
+              <div class="stats-section-title">Estimation</div>
+              <div class="stats-row highlight"><span class="label">Print Time:</span><span class="value" id="stat-print-time">—</span></div>
+              <div class="stats-row"><span class="label">Filament:</span><span class="value" id="stat-filament">—</span></div>
+              <div class="stats-row"><span class="label">Weight:</span><span class="value" id="stat-weight">—</span></div>
+            </div>
+            <div class="stats-divider"></div>
+            <div class="stats-section">
+              <div class="stats-section-title">Temperatures</div>
+              <div class="stats-row"><span class="label">Nozzle (Base):</span><span class="value" id="stat-nozzle-base">—</span></div>
+              <div class="stats-row"><span class="label">Nozzle (Wall):</span><span class="value" id="stat-nozzle-wall">—</span></div>
+              <div class="stats-row"><span class="label">Bed:</span><span class="value" id="stat-bed-temp">—</span></div>
+            </div>
+            <div class="stats-divider"></div>
+            <div class="stats-section">
+              <div class="stats-section-title">Flow Rates</div>
+              <div class="stats-row"><span class="label">Base:</span><span class="value" id="stat-flow-base">—</span></div>
+              <div class="stats-row"><span class="label">Wall:</span><span class="value" id="stat-flow-wall">—</span></div>
+            </div>
+            <div class="stats-divider"></div>
+            <div class="stats-section">
+              <div class="stats-section-title">Info</div>
+              <div class="stats-row"><span class="label">Generated:</span><span class="value" id="stat-date">—</span></div>
+              <div class="stats-row"><span class="label">Lines:</span><span class="value" id="stat-lines">—</span></div>
+            </div>            <div class="stats-divider"></div>
+            <div class="stats-section">
+              <div class="stats-section-title">Status</div>
+              <div class="stats-row"><span class="label">State:</span><span class="value" id="status-msg">Ready</span></div>
+              <div class="stats-row"><span class="label">Output:</span><span class="value" id="status-right" style="font-family:'JetBrains Mono',monospace;">&mdash;</span></div>
+            </div>          </div>
+        </div>
+
+        <!-- Layer slider -->
+        <div class="sim-layer-rail">
+          <div class="layer-label-top"><span id="layer-current">All</span>Layer</div>
+          <div class="layer-slider-track"><input type="range" id="layer-slider" min="0" max="100" value="100" step="1"></div>
+          <div class="layer-label-bottom">of <span id="layer-total">0</span></div>
+        </div>
+
+        <!-- Playback bar -->
+        <div class="sim-playback">
+          <div class="sim-bar">
+            <button class="sim-btn" id="sim-play-btn" title="Play/Pause">
+              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" id="sim-play-icon"><polygon points="6,3 20,12 6,21"/></svg>
+            </button>
+            <div class="sim-slider-wrap"><input type="range" id="sim-progress" min="0" max="1000" value="1000" step="1"></div>
+            <div class="sim-label"><span id="sim-percent">100</span>%</div>
+            <div class="sim-divider"></div>
+            <div class="sim-label">Speed</div>
+            <button class="sim-btn-sm active" data-speed="10" onclick="setSimSpeed(10)">10×</button>
+            <button class="sim-btn-sm" data-speed="50" onclick="setSimSpeed(50)">50×</button>
+            <button class="sim-btn-sm" data-speed="200" onclick="setSimSpeed(200)">200×</button>
+            <button class="sim-btn-sm" data-speed="2000" onclick="setSimSpeed(2000)">∞</button>
+            <div class="sim-divider"></div>
+            <div class="sim-badges">
+              <div class="viewport-badge" id="badge-verts">Verts: 0</div>
+              <div class="viewport-badge" id="badge-lines">~0 min</div>
+              <div class="viewport-badge" id="sim-time">0:00 / 0:00</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- G-code Panel -->
+    <div class="panel" id="panel-gcode">
+      <div class="gcode-editor-wrap">
+        <div class="gcode-toolbar">
+          <div class="gcode-stats">
+            <div>Lines: <span id="gcode-lines">0</span></div>
+            <div>Size: <span id="gcode-size">0 KB</span></div>
+            <div>E: <span id="gcode-extrusion">0 mm</span></div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="copyGcode()"><i data-feather="clipboard"></i> Copy</button>
+        </div>
+        <textarea id="gcode-editor" spellcheck="false" placeholder="Click 'Generate' to create G-code..."></textarea>
+      </div>
+    </div>
+
+  </div> <!-- /workspace -->
+
+  <!-- Return Banner -->
+  <div class="return-banner hidden" id="return-banner">
+    <div class="return-banner-content">
+      <strong class="return-banner-title">Welcome back.</strong>
+      <span>We found a previous project. Choose what to do next.</span>
+    </div>
+    <div class="return-banner-actions">
+      <button class="btn btn-secondary" id="btn-keep-project">Keep working</button>
+      <button class="btn btn-primary" id="btn-new-project">Start new</button>
+      <button class="btn btn-outline" id="btn-export-new">Export + new</button>
+    </div>
+  </div>
+
+  <!-- Transfer Modal -->
+  <div class="transfer-modal hidden" id="transfer-modal">
+    <div class="transfer-card">
+      <div class="transfer-header"><h3>Start New Project</h3><p>Transfer printer settings into the new project?</p></div>
+      <div class="transfer-grid">
+        <label class="transfer-option"><input type="checkbox" id="transfer-bed" checked><span>Build plate origin + center</span></label>
+        <label class="transfer-option"><input type="checkbox" id="transfer-filament" checked><span>Filament diameter</span></label>
+        <label class="transfer-option"><input type="checkbox" id="transfer-temps" checked><span>Temperatures</span></label>
+        <label class="transfer-option"><input type="checkbox" id="transfer-fan" checked><span>Cooling + travel speed</span></label>
+      </div>
+      <div class="transfer-actions">
+        <button class="btn btn-secondary" id="btn-start-fresh">Start fresh</button>
+        <button class="btn btn-secondary" id="btn-transfer-selected">Transfer selected</button>
+        <button class="btn btn-primary" id="btn-transfer-all">Transfer all</button>
+      </div>
+    </div>
+  </div>
+
+</div> <!-- /app -->
+</section> <!-- /designer-section -->
+
+<script type="module" src="./src/main.js"></script>
+
+<script>
+/* ── Style & Theme Switching ── */
+function setUIStyle(name) {
+  document.documentElement.setAttribute('data-style', name);
+  localStorage.setItem('gwtf.style', name);
+  document.querySelectorAll('.style-opt').forEach(o => o.classList.toggle('active', o.dataset.style === name));
+  var lbl = document.getElementById('style-picker-label');
+  if (lbl) lbl.textContent = {command:'Command',float:'Float',drawer:'Drawer',horizon:'Horizon'}[name] || name;
+  var panel = document.getElementById('sidebar');
+  if (panel) panel.classList.remove('open');
+  var ov = document.getElementById('drawer-overlay');
+  if (ov) ov.classList.remove('active');
+  closeStylePicker();
+  setTimeout(function(){ window.dispatchEvent(new Event('resize')); }, 150);
+}
+
+function setTheme(name) {
+  document.documentElement.setAttribute('data-theme', name);
+  localStorage.setItem('gwtf.theme', name);
+  document.querySelectorAll('.color-opt').forEach(o => o.classList.toggle('active', o.dataset.theme === name));
+}
+
+function toggleStylePicker() {
+  var dd = document.getElementById('style-dropdown');
+  if (dd) dd.classList.toggle('open');
+}
+function closeStylePicker() {
+  var dd = document.getElementById('style-dropdown');
+  if (dd) dd.classList.remove('open');
+}
+
+function toggleSettingsPanel() {
+  var style = document.documentElement.getAttribute('data-style');
+  var isMobile = window.innerWidth <= 1024;
+  if (!isMobile && (style === 'command' || style === 'horizon')) return;
+  var panel = document.getElementById('sidebar');
+  var ov = document.getElementById('drawer-overlay');
+  if (panel) panel.classList.toggle('open');
+  if (ov) ov.classList.toggle('active', panel && panel.classList.contains('open'));
+  setTimeout(function(){ window.dispatchEvent(new Event('resize')); }, 350);
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.style-picker')) closeStylePicker();
+});
+
+/* Restore saved preferences */
+(function() {
+  var savedStyle = localStorage.getItem('gwtf.style');
+  var savedTheme = localStorage.getItem('gwtf.theme');
+  if (savedStyle) setUIStyle(savedStyle);
+  if (savedTheme) setTheme(savedTheme);
+})();
+</script>
+
+</body>
+</html>
