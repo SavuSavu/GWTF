@@ -624,7 +624,16 @@ export class GCodeBuilder {
       for (let pass = 0; pass < nPasses; pass++) {
         if (nPasses > 1) this.w(`; pass ${pass + 1}/${nPasses}`);
 
+        // Print each pass in reverse angular order so the transition from the
+        // last blob of layer N to the first blob of layer N+1 stays tighter.
+        // This reduces the seam-side gap that can appear with layer offsets.
+        const passDots = [];
         for (let dot = pass; dot < p.blobDotsPerRev; dot += stride) {
+          passDots.push(dot);
+        }
+
+        for (let i = passDots.length - 1; i >= 0; i--) {
+          const dot = passDots[i];
           const theta = (2 * Math.PI * dot / p.blobDotsPerRev) + layerAngleOffset;
 
           // --- Blob path with radial offsets and wave ---
