@@ -202,6 +202,33 @@ This symmetry is intentional.
 - Expanded return banner to force a decision and added export+new option
 - Added transfer-settings modal for printer-related settings on new project start
 
+### Blob Mode Transition Safety + Curved Travel Controls
+- Refactored blob-to-blob motion to enforce a collision-safe sequence:
+  - finish blob extrusion,
+  - dwell,
+  - lift to safe Z,
+  - travel in XY only at safe Z,
+  - descend vertically to next blob start,
+  - begin extrusion only during the vertical blob rise.
+- Removed the previous angled down-and-forward transition behavior that could collide when clearance was low.
+- Added new Blob Mode controls for transition shaping:
+  - `blob_transition_curvature` (`-1.0 … +1.0`, default `0`)
+  - `blob_transition_path_increase` (`0 … 50 mm`, default `0`)
+  - `blob_layer_transition_offset` (`-5 … +5 mm`, default `0`)
+- Added XY arc generation for blob-to-blob travel at safe Z:
+  - `curvature = 0` keeps straight travel,
+  - `curvature ≠ 0` uses curved travel,
+  - `pathIncrease` increases arc magnitude / travel length when curvature is active.
+- Improved inter-layer continuity by selecting and rotating each layer’s blob start index relative to the previous layer’s last blob, then biasing it with `blob_layer_transition_offset`.
+- Preserved hop behavior and existing blob deposition logic while making transition planning modular.
+- Added round-trip support for all new settings:
+  - header emission in G-code,
+  - parser mapping (`snake_case → camelCase`),
+  - UI read/default/load mapping,
+  - preset defaults,
+  - help-tip descriptions.
+- Updated Blob Settings UI with explicit controls for Layer Transition Offset, Transition Curvature, and Transition Path Increase.
+
 (Add future changes below 👇)
 
 ---

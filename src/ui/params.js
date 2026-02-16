@@ -91,6 +91,9 @@ export function readParams() {
     blobOffsetStart: val('blob_offset_start'),
     blobOffsetEnd: val('blob_offset_end'),
     blobWave: clamp(val('blob_wave'), -1, 1),
+    blobTransitionCurvature: clamp(val('blob_transition_curvature'), -1, 1),
+    blobTransitionPathIncrease: clamp(val('blob_transition_path_increase'), 0, 50),
+    blobLayerTransitionOffset: clamp(val('blob_layer_transition_offset'), -5, 5),
 
     // Vase layers on top of blobs
     blobVaseLayers: (document.getElementById('blob_vase_layers')?.value || 'no') === 'yes',
@@ -179,6 +182,9 @@ export function resetDefaults() {
     blob_offset_start: 0,
     blob_offset_end: 0,
     blob_wave: 0,
+    blob_transition_curvature: 0,
+    blob_transition_path_increase: 0,
+    blob_layer_transition_offset: 0,
 
     // Vase layers on top of blobs
     blob_vase_layers: 'no',
@@ -278,6 +284,9 @@ export function loadSettingsToUI(settings) {
     blobOffsetStart: 'blob_offset_start',
     blobOffsetEnd: 'blob_offset_end',
     blobWave: 'blob_wave',
+    blobTransitionCurvature: 'blob_transition_curvature',
+    blobTransitionPathIncrease: 'blob_transition_path_increase',
+    blobLayerTransitionOffset: 'blob_layer_transition_offset',
     blobVaseLayers: 'blob_vase_layers',
     blobVlEveryN: 'blob_vl_every_n',
     blobVlCount: 'blob_vl_count',

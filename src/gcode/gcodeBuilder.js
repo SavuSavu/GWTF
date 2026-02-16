@@ -141,6 +141,9 @@ export class GCodeBuilder {
     this.w(`; blob_offset_start=${p.blobOffsetStart}`);
     this.w(`; blob_offset_end=${p.blobOffsetEnd}`);
     this.w(`; blob_wave=${p.blobWave}`);
+    this.w(`; blob_transition_curvature=${p.blobTransitionCurvature || 0}`);
+    this.w(`; blob_transition_path_increase=${p.blobTransitionPathIncrease || 0}`);
+    this.w(`; blob_layer_transition_offset=${p.blobLayerTransitionOffset || 0}`);
     this.w('; ');
     this.w('; VASE LAYERS ON BLOBS:');
     this.w(`; blob_vase_layers=${p.blobVaseLayers}`);
@@ -574,6 +577,132 @@ export class GCodeBuilder {
    * If blobVaseLayers is enabled, normal vase-mode spirals are printed on top
    * of every Nth blob layer.
    */
+  buildBlobLayerOrder(dotsPerRev, stride) {
+    const order = [];
+    for (let pass = 0; pass < stride; pass++) {
+      const passDots = [];
+      for (let dot = pass; dot < dotsPerRev; dot += stride) {
+        passDots.push(dot);
+      }
+      for (let i = passDots.length - 1; i >= 0; i--) {
+        order.push(passDots[i]);
+      }
+    }
+    return order;
+  }
+
+  rotateBlobLayerOrder(order, startIdx) {
+    if (!Array.isArray(order) || order.length === 0) return [];
+    const n = order.length;
+    const idx = ((startIdx % n) + n) % n;
+    if (idx === 0) return [...order];
+    return [...order.slice(idx), ...order.slice(0, idx)];
+  }
+
+  pickBlobLayerStartIndex(order, dotsPerRev, layerAngleOffset, startRadius, prevLayerLastTop, transitionOffsetMm, cx, cy) {
+    if (!prevLayerLastTop || !Array.isArray(order) || order.length === 0) return 0;
+
+    const candidates = [];
+    let minDistance = Infinity;
+
+    for (let i = 0; i < order.length; i++) {
+      const dot = order[i];
+      const theta = (2 * Math.PI * dot / dotsPerRev) + layerAngleOffset;
+      const x = cx + startRadius * Math.cos(theta);
+      const y = cy + startRadius * Math.sin(theta);
+      const distance = Math.hypot(x - prevLayerLastTop.x, y - prevLayerLastTop.y);
+      candidates.push({ i, distance });
+      if (distance < minDistance) minDistance = distance;
+    }
+
+    const targetDistance = Math.max(0, minDistance + (transitionOffsetMm || 0));
+    let best = candidates[0];
+    let bestScore = Math.abs(candidates[0].distance - targetDistance);
+
+    for (let i = 1; i < candidates.length; i++) {
+      const c = candidates[i];
+      const score = Math.abs(c.distance - targetDistance);
+      if (score < bestScore || (score === bestScore && c.distance < best.distance)) {
+        best = c;
+        bestScore = score;
+      }
+    }
+
+    return best.i;
+  }
+
+  travelBlobArcXYAtSafeZ(toX, toY, safeZ, cx, cy) {
+    const p = this.p;
+    const fromX = this.x;
+    const fromY = this.y;
+
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const chord = Math.hypot(dx, dy);
+    if (chord < 1e-6) return;
+
+    const curvature = clamp(p.blobTransitionCurvature || 0, -1, 1);
+    if (Math.abs(curvature) < 1e-6) {
+      this.move(toX, toY, safeZ, p.travelSpeed);
+      return;
+    }
+
+    const pathIncrease = clamp(p.blobTransitionPathIncrease || 0, 0, 50);
+
+    const midX = (fromX + toX) * 0.5;
+    const midY = (fromY + toY) * 0.5;
+
+    let dirX = midX - cx;
+    let dirY = midY - cy;
+    let dirLen = Math.hypot(dirX, dirY);
+    if (dirLen < 1e-6) {
+      dirX = -dy;
+      dirY = dx;
+      dirLen = Math.hypot(dirX, dirY);
+    }
+    dirX /= Math.max(dirLen, 1e-9);
+    dirY /= Math.max(dirLen, 1e-9);
+
+    const curvatureSagitta = Math.abs(curvature) * chord * 0.5;
+    const increaseSagitta = pathIncrease > 0
+      ? Math.sqrt(Math.max(0, (3 * chord * pathIncrease) / 8))
+      : 0;
+    const sagitta = Math.min(curvatureSagitta + increaseSagitta, chord * 2.5);
+    const sign = Math.sign(curvature);
+
+    const ctrlX = midX + sign * dirX * sagitta;
+    const ctrlY = midY + sign * dirY * sagitta;
+
+    const approxLen = chord + Math.abs(pathIncrease) + Math.abs(curvature) * chord * 0.5;
+    const nSegs = Math.round(clamp(approxLen / 1.5, 6, 96));
+
+    for (let i = 1; i <= nSegs; i++) {
+      const t = i / nSegs;
+      const omt = 1 - t;
+      const x = omt * omt * fromX + 2 * omt * t * ctrlX + t * t * toX;
+      const y = omt * omt * fromY + 2 * omt * t * ctrlY + t * t * toY;
+      this.move(x, y, safeZ, p.travelSpeed);
+    }
+  }
+
+  travelToBlobStartSafe(target, cx, cy) {
+    const p = this.p;
+    const safeZ = Math.max(this.z, target.topZ + p.blobClearanceZ);
+
+    if (this.z < safeZ - 1e-6) {
+      this.move(null, null, safeZ, p.travelSpeed);
+    }
+
+    const xyDist = Math.hypot(target.startX - this.x, target.startY - this.y);
+    if (xyDist > 1e-6) {
+      this.travelBlobArcXYAtSafeZ(target.startX, target.startY, safeZ, cx, cy);
+    }
+
+    if (this.z > target.baseZ + 1e-6 || this.z < target.baseZ - 1e-6) {
+      this.move(null, null, target.baseZ, p.travelSpeed * 0.5);
+    }
+  }
+
   blobWall(cx, cy, startZ, endZ, bottomR, topR) {
     const p = this.p;
     const height = endZ - startZ;
@@ -585,11 +714,11 @@ export class GCodeBuilder {
 
     const hops = Math.max(0, Math.round(p.blobHops || 0));
     const stride = hops + 1; // print every stride-th blob per pass
-    const nPasses = stride;  // need this many passes to fill all positions
 
     const offsetStart = p.blobOffsetStart || 0; // mm radial offset at blob base
     const offsetEnd   = p.blobOffsetEnd   || 0; // mm radial offset at blob top
     const wave        = clamp(p.blobWave  || 0, -1, 1); // sinusoidal curvature
+    const layerTransitionOffset = clamp(p.blobLayerTransitionOffset || 0, -5, 5);
 
     // Vase-layer settings
     const doVaseLayers = p.blobVaseLayers && p.blobVlCount > 0;
@@ -607,6 +736,9 @@ export class GCodeBuilder {
     // Blob fan
     this.w(`M106 S${Math.round(clamp(p.blobFanPercent, 0, 100) * 255 / 100)} ; blob fan`);
 
+    let prevLayerLastTop = null;
+    const layerOrderBase = this.buildBlobLayerOrder(p.blobDotsPerRev, stride);
+
     for (let layer = 0; layer < nLayers; layer++) {
       const t = nLayers > 1 ? layer / (nLayers - 1) : 0;
       const r = lerp(bottomR, topR, t);
@@ -615,25 +747,27 @@ export class GCodeBuilder {
       // Rotational offset per layer for staggered pattern
       const layerAngleOffset = layer * p.blobLayerOffset * (2 * Math.PI / p.blobDotsPerRev);
 
-      this.w(`; blob layer ${layer + 1}/${nLayers} z=${fmt(baseZ)} hops=${hops}`);
+      const startRadius = r + offsetStart;
+      const startIdx = this.pickBlobLayerStartIndex(
+        layerOrderBase,
+        p.blobDotsPerRev,
+        layerAngleOffset,
+        startRadius,
+        prevLayerLastTop,
+        layerTransitionOffset,
+        cx,
+        cy
+      );
+      const layerOrder = this.rotateBlobLayerOrder(layerOrderBase, startIdx);
 
-      // With hops, we do multiple passes to fill every slot.
-      // Pass 0 prints slots 0, stride, 2*stride, ...
-      // Pass 1 prints slots 1, stride+1, 2*stride+1, ...
-      // etc.
-      for (let pass = 0; pass < nPasses; pass++) {
-        if (nPasses > 1) this.w(`; pass ${pass + 1}/${nPasses}`);
+      this.w(`; blob layer ${layer + 1}/${nLayers} z=${fmt(baseZ)} hops=${hops} start_idx=${startIdx}`);
 
-        // Print each pass in reverse angular order so the transition from the
-        // last blob of layer N to the first blob of layer N+1 stays tighter.
-        // This reduces the seam-side gap that can appear with layer offsets.
-        const passDots = [];
-        for (let dot = pass; dot < p.blobDotsPerRev; dot += stride) {
-          passDots.push(dot);
-        }
+      let layerLastTop = null;
 
-        for (let i = passDots.length - 1; i >= 0; i--) {
-          const dot = passDots[i];
+      // Keep existing hop-based placement, but allow a rotated start index so
+      // last-layer to next-layer transition distance can be controlled.
+      for (let orderIdx = 0; orderIdx < layerOrder.length; orderIdx++) {
+          const dot = layerOrder[orderIdx];
           const theta = (2 * Math.PI * dot / p.blobDotsPerRev) + layerAngleOffset;
 
           // --- Blob path with radial offsets and wave ---
@@ -644,18 +778,18 @@ export class GCodeBuilder {
 
           const bxStart = cx + rStart * Math.cos(theta);
           const byStart = cy + rStart * Math.sin(theta);
+          const blobTopZ = baseZ + actualDotH;
 
-          // 1. Travel to clearance height above blob start
-          const clearZ = baseZ + p.blobClearanceZ;
-          this.move(bxStart, byStart, clearZ, p.travelSpeed);
+          // 1) Collision-safe transition to next blob start:
+          //    - Raise (if needed) to safe Z.
+          //    - Move in XY only at that safe Z (straight or curved).
+          //    - Lower vertically to the blob base Z.
+          //    This prevents diagonal descent collisions when clearance is low.
+          this.travelToBlobStartSafe({ startX: bxStart, startY: byStart, baseZ, topZ: blobTopZ }, cx, cy);
 
-          // 2. Lower to blob start Z
-          this.move(null, null, baseZ, p.travelSpeed * 0.5);
-
-          // 3. Extrude upward through the blob height
+          // 2) Extrude upward through the blob height
           //    If offsets differ or wave != 0, we subdivide the rise into segments
           //    to trace the curved/offset path.
-          const blobTopZ = baseZ + actualDotH;
           const needSubdiv = (offsetStart !== offsetEnd) || (wave !== 0);
           const nSegs = needSubdiv ? Math.max(4, Math.round(actualDotH / 0.2)) : 1;
           const dePerSeg = p.blobDotExtrusion / nSegs;
@@ -686,9 +820,13 @@ export class GCodeBuilder {
             this.w(`G1 X${fmt(segX)} Y${fmt(segY)} Z${fmt(segZ)} ${eField} F${feedrate}`);
             this.extrudePoints.push({ x: fromX, y: fromY, z: fromZ });
             this.extrudePoints.push({ x: segX, y: segY, z: segZ });
+
+            if (seg === nSegs - 1) {
+              layerLastTop = { x: segX, y: segY };
+            }
           }
 
-          // 4. Retract filament (before dwell) to reduce ooze
+          // 3) Retract filament (before dwell) to reduce ooze
           const retractLen = p.blobRetractLen || 0;
           const retractSpeed = p.blobRetractSpeed || 30;
           if (retractLen > 0) {
@@ -702,15 +840,15 @@ export class GCodeBuilder {
             this.w(`G1 ${eField} F${Math.round(retractSpeed * 60)} ; retract`);
           }
 
-          // 5. Dwell to let material pool
+          // 4) Dwell to let material pool
           if (p.blobDwellMs > 0) {
             this.w(`G4 P${p.blobDwellMs} ; dwell`);
           }
 
-          // 6. Lift to clearance before next blob
+          // 5) Lift to safe Z before next blob transition
           this.move(null, null, blobTopZ + p.blobClearanceZ, p.travelSpeed);
 
-          // 7. De-retract filament after travel is started
+          // 6) De-retract while stationary at safe Z (never during XY travel)
           if (retractLen > 0) {
             let eField;
             if (p.absoluteExtrusion) {
@@ -721,8 +859,9 @@ export class GCodeBuilder {
             }
             this.w(`G1 ${eField} F${Math.round(retractSpeed * 60)} ; de-retract`);
           }
-        }
       }
+
+      if (layerLastTop) prevLayerLastTop = layerLastTop;
 
       // --- Vase layers on top of this blob layer ---
       if (doVaseLayers && ((layer + 1) % vlEveryN === 0)) {

@@ -73,6 +73,9 @@ const SNAKE_TO_CAMEL = {
   blob_offset_start: 'blobOffsetStart',
   blob_offset_end: 'blobOffsetEnd',
   blob_wave: 'blobWave',
+  blob_transition_curvature: 'blobTransitionCurvature',
+  blob_transition_path_increase: 'blobTransitionPathIncrease',
+  blob_layer_transition_offset: 'blobLayerTransitionOffset',
 
   // Vase layers on top of blobs
   blob_vase_layers: 'blobVaseLayers',

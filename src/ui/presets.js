@@ -102,6 +102,9 @@ const DEFAULT_PRESETS = [
       blobClearanceZ: 3.0,
       blobNozzleTemp: 230,
       blobFanPercent: 30,
+      blobTransitionCurvature: 0,
+      blobTransitionPathIncrease: 0,
+      blobLayerTransitionOffset: 0,
 
       filamentD: 1.75,
       fanPercent: 30,
