@@ -1,5 +1,6 @@
 // src/gcode/gcodeBuilder.js
 import { fmt, clamp, lerp } from '../utils/math.js';
+import { evaluateProfile, deserializeProfile } from '../ui/profileEditor.js';
 
 // ============================================================
 // EXTRUSION + WAVE HELPERS
@@ -84,8 +85,11 @@ export class GCodeBuilder {
     this.w(`; phase_offset_per_turn=${fmt(p.phaseOffsetPerTurn)}`);
     this.w('; ');
     this.w('; Z-WAVE CONTOUR:');
+    this.w(`; z_wave_mode=${p.zWaveMode || 'off'}`);
     this.w(`; z_wave_amp=${p.zWaveAmp}`);
     this.w(`; z_wave_cycles=${p.zWaveCycles}`);
+    this.w(`; z_wave_max_amp=${p.zWaveMaxAmp || 10}`);
+    this.w(`; z_wave_profile=${p.zWaveProfile || ''}`);
     this.w('; ');
     this.w('; BASE LAYER SETTINGS:');
     this.w(`; base_layer_height=${p.baseLayerHeight}`);
@@ -161,15 +165,7 @@ export class GCodeBuilder {
     this.w('; ===================================================');
     this.w('');
 
-    if (p.customStartGcode) {
-      this.w('; --- custom start gcode ---');
-      this.w(p.customStartGcode);
-      this.w('G92 E0');
-      this.e = 0;
-      return;
-    }
-
-    // Default start G-code
+    // Default start G-code (always emitted)
     this.w('; --- start gcode ---');
     this.w('G21 ; mm');
     this.w('G90 ; absolute XYZ');
@@ -191,15 +187,26 @@ export class GCodeBuilder {
     this.w(`M106 S${Math.round(clamp(p.fanPercent, 0, 100) * 255 / 100)}`);
     this.w('G92 E0');
     this.e = 0;
+
+    // User-supplied custom start G-code (appended after defaults)
+    if (p.customStartGcode) {
+      this.w('; --- custom start gcode ---');
+      this.w(p.customStartGcode);
+      this.w('; --- end custom start gcode ---');
+      this.w('G92 E0');
+      this.e = 0;
+    }
   }
 
   footer() {
+    // User-supplied custom end G-code (inserted before default shutdown)
     if (this.p.customEndGcode) {
       this.w('; --- custom end gcode ---');
       this.w(this.p.customEndGcode);
-      return;
+      this.w('; --- end custom end gcode ---');
     }
 
+    // Default end G-code (always emitted)
     this.w('; --- end gcode ---');
     this.w('M104 S0');
     this.w('M140 S0');
@@ -481,9 +488,8 @@ export class GCodeBuilder {
       const t = (z - startZ) / Math.max(1e-9, endZ - startZ);
       let baseR = lerp(bottomR, topR, t);
 
-      if (p.zWaveAmp !== 0) {
-        baseR += p.zWaveAmp * Math.sin(p.zWaveCycles * 2 * Math.PI * t);
-      }
+      // --- Z-wave contour: radial modulation along height ---
+      baseR += this._zWaveOffset(t);
 
       // --- Gradually introduce wave amplitude (quadratic ease-in) ---
       if (waveRampTurns > 0 && currentTurn < waveRampTurns) {
@@ -772,7 +778,9 @@ export class GCodeBuilder {
 
     for (let layer = 0; layer < nLayers; layer++) {
       const t = nLayers > 1 ? layer / (nLayers - 1) : 0;
-      const r = lerp(bottomR, topR, t);
+      const baseR = lerp(bottomR, topR, t);
+      const zWaveOff = this._zWaveOffset(t);
+      const r = baseR + zWaveOff;
       const baseZ = startZ + layer * actualDotH;
 
       // Rotational offset per layer for staggered pattern
@@ -910,6 +918,39 @@ export class GCodeBuilder {
           vlLineWidth, vlLayerHeight, vlEPerMm);
       }
     }
+  }
+
+  // ============================================================
+  // Z-WAVE CONTOUR OFFSET (shared by vase + blob)
+  // ============================================================
+
+  /**
+   * Compute the radial offset from Z-wave contour at height fraction t (0..1).
+   * Supports three modes:
+   *   - 'off': no offset (returns 0)
+   *   - 'auto': sine wave with zWaveAmp and zWaveCycles
+   *   - 'manual': Catmull-Rom profile from control points
+   */
+  _zWaveOffset(t) {
+    const p = this.p;
+    const mode = p.zWaveMode || 'off';
+
+    if (mode === 'auto') {
+      if (p.zWaveAmp === 0 || p.zWaveCycles === 0) return 0;
+      return p.zWaveAmp * Math.sin(p.zWaveCycles * 2 * Math.PI * t);
+    }
+
+    if (mode === 'manual') {
+      // Parse and cache the profile points
+      if (!this._profilePoints) {
+        this._profilePoints = deserializeProfile(p.zWaveProfile);
+      }
+      if (!this._profilePoints || this._profilePoints.length < 2) return 0;
+      const maxAmp = p.zWaveMaxAmp || 10;
+      return evaluateProfile(this._profilePoints, t) * maxAmp;
+    }
+
+    return 0;
   }
 
   build() {

@@ -1236,3 +1236,159 @@ a:hover { color: var(--accent-hover); }
 .help-tip:hover::before, .help-tip:focus-visible::before, .help-tip[data-open="true"]::before {
   opacity: 1; visibility: visible;
 }
+
+/* ============================================================
+   Z-WAVE PROFILE EDITOR
+   ============================================================ */
+.profile-editor-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.profile-editor-wrap canvas {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  touch-action: none;
+  cursor: default;
+}
+
+.profile-editor-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 1.4;
+  padding: 2px 0;
+}
+
+.profile-editor-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.profile-editor-actions button {
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+  font-size: 11px;
+  padding: 5px 8px;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.profile-editor-actions button:hover {
+  background: var(--surface3);
+}
+
+/* Expand / fullscreen toggle button */
+.profile-editor-expand-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity .15s, background .15s;
+  z-index: 2;
+}
+.profile-editor-expand-btn:hover {
+  opacity: 1;
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ── Fullscreen overlay ── */
+.profile-editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.60);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.profile-editor-overlay-content {
+  width: 90vw;
+  height: 90vh;
+  max-width: 1400px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+
+.profile-editor-overlay-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.profile-editor-close-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 18px;
+  transition: background .15s, color .15s;
+}
+.profile-editor-close-btn:hover {
+  background: var(--red, #f87171);
+  color: #fff;
+}
+
+.profile-editor-overlay-canvas {
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
+}
+
+.profile-editor-overlay-canvas canvas {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  touch-action: none;
+  cursor: default;
+}
+
+.profile-editor-overlay-hint {
+  padding: 8px 16px 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+  border-top: 1px solid var(--border);
+}

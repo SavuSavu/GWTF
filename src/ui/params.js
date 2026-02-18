@@ -26,8 +26,11 @@ export function readParams() {
     waveShape: clamp(val('wave_shape'), 0, 1),
     phaseOffsetPerTurn: interference * Math.PI,
 
+    zWaveMode: document.getElementById('z_wave_mode')?.value || 'off',
     zWaveAmp: val('z_wave_amp'),
     zWaveCycles: val('z_wave_cycles'),
+    zWaveMaxAmp: Math.max(1, val('z_wave_max_amp')),
+    zWaveProfile: document.getElementById('z_wave_profile')?.value || '',
 
     // Base layer settings
     basePattern: document.getElementById('base_pattern').value,
@@ -156,7 +159,8 @@ export function resetDefaults() {
   const defaults = {
     outer_d: 100, top_outer_d: 100, height: 150, hole_d: 39,
     base_layers: 3, gradual_layers: 5, wave_amp: 1.5, wave_count: 14, wave_shape: 0,
-    interference: 1, z_wave_amp: 0, z_wave_cycles: 0,
+    interference: 1, z_wave_mode: 'off', z_wave_amp: 0, z_wave_cycles: 0,
+    z_wave_max_amp: 10, z_wave_profile: '',
 
     // Base layer settings
     base_pattern: 'concentric',
@@ -219,6 +223,7 @@ export function resetDefaults() {
   if (document.getElementById('seam_align')) document.getElementById('seam_align').value = 'aligned';
   if (document.getElementById('dir_alternation')) document.getElementById('dir_alternation').value = 'never';
   if (document.getElementById('start_direction')) document.getElementById('start_direction').value = 'ccw';
+  if (document.getElementById('z_wave_mode')) document.getElementById('z_wave_mode').value = 'off';
   document.getElementById('custom_start_gcode').value = '';
   document.getElementById('custom_end_gcode').value = '';
 
@@ -231,6 +236,7 @@ export function resetDefaults() {
 
   clampHoleDiameter();
   syncDirAlternationUI();
+  syncZWaveMode();
 }
 
 export function loadSettingsToUI(settings) {
@@ -248,8 +254,11 @@ export function loadSettingsToUI(settings) {
     waveShape: 'wave_shape',
     interference: 'interference',
 
+    zWaveMode: 'z_wave_mode',
     zWaveAmp: 'z_wave_amp',
     zWaveCycles: 'z_wave_cycles',
+    zWaveMaxAmp: 'z_wave_max_amp',
+    zWaveProfile: 'z_wave_profile',
 
     baseLayerHeight: 'base_layer_height',
     baseLineWidth: 'base_line_width',
@@ -338,6 +347,7 @@ export function loadSettingsToUI(settings) {
   syncWallModeUI();
   syncBlobVaseLayersUI();
   syncDirAlternationUI();
+  syncZWaveMode();
 
   clampHoleDiameter();
 }
@@ -350,7 +360,17 @@ export function syncWallModeUI() {
   const zwaveSec = document.getElementById('sec-zwave');
   if (blobSec)  blobSec.style.display  = mode === 'blob' ? '' : 'none';
   if (waveSec)  waveSec.style.display   = mode === 'vase' ? '' : 'none';
-  if (zwaveSec) zwaveSec.style.display  = mode === 'vase' ? '' : 'none';
+  // Z-wave section visible in both modes
+  if (zwaveSec) zwaveSec.style.display  = '';
+}
+
+/** Show/hide Z-wave sub-controls based on mode selection */
+export function syncZWaveMode() {
+  const mode = document.getElementById('z_wave_mode')?.value || 'off';
+  const autoCtrl = document.getElementById('zwave-auto-controls');
+  const manualCtrl = document.getElementById('zwave-manual-controls');
+  if (autoCtrl) autoCtrl.style.display = mode === 'auto' ? '' : 'none';
+  if (manualCtrl) manualCtrl.style.display = mode === 'manual' ? '' : 'none';
 }
 
 /** Show/hide vase-layer options inside blob section */

@@ -374,13 +374,51 @@
       <div class="param-section-body">
         <div class="field-row">
           <div class="field">
-            <label>Z Wave Amp (mm)</label>
-            <input type="number" id="z_wave_amp" value="0" min="-50" max="50" step="0.5">
+            <label>Mode</label>
+            <select id="z_wave_mode" onchange="syncZWaveMode()">
+              <option value="off" selected>Off</option>
+              <option value="auto">Auto (Sine Wave)</option>
+              <option value="manual">Manual (Draw Profile)</option>
+            </select>
           </div>
-          <div class="field">
-            <label>Z Wave Cycles</label>
-            <input type="number" id="z_wave_cycles" value="0" min="0" max="20" step="0.5">
+        </div>
+
+        <!-- Auto mode controls -->
+        <div id="zwave-auto-controls" style="display:none">
+          <div class="field-row">
+            <div class="field">
+              <label>Z Wave Amp (mm)</label>
+              <input type="number" id="z_wave_amp" value="0" min="-50" max="50" step="0.5">
+            </div>
+            <div class="field">
+              <label>Z Wave Cycles</label>
+              <input type="number" id="z_wave_cycles" value="0" min="0" max="20" step="0.5">
+            </div>
           </div>
+        </div>
+
+        <!-- Manual mode controls -->
+        <div id="zwave-manual-controls" style="display:none">
+          <div class="field-row">
+            <div class="field">
+              <label>Max Amplitude (mm)</label>
+              <input type="number" id="z_wave_max_amp" value="10" min="1" max="50" step="0.5"
+                     oninput="updateProfileEditorGeometry()">
+            </div>
+          </div>
+          <div class="profile-editor-wrap">
+            <canvas id="profile-editor-canvas"></canvas>
+            <button type="button" class="profile-editor-expand-btn"
+                    onclick="toggleProfileEditorFullscreen()" title="Expand to fullscreen">⛶</button>
+            <p class="profile-editor-hint">Click on curve to add • Drag to move • Right-click or double-click to remove</p>
+          </div>
+          <div class="profile-editor-actions">
+            <button type="button" onclick="resetProfileEditor()" title="Clear all points">Reset</button>
+            <button type="button" onclick="generateSineProfile()" title="Generate from auto settings">From Auto</button>
+            <button type="button" onclick="mirrorProfile()" title="Flip radial offsets">Mirror</button>
+            <button type="button" onclick="smoothProfile()" title="Average neighbouring points">Smooth</button>
+          </div>
+          <input type="hidden" id="z_wave_profile" value="">
         </div>
       </div>
     </div>

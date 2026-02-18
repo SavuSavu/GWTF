@@ -18,8 +18,11 @@ const SNAKE_TO_CAMEL = {
   phase_offset_per_turn: 'phaseOffsetPerTurn',
 
   // Z wave
+  z_wave_mode: 'zWaveMode',
   z_wave_amp: 'zWaveAmp',
   z_wave_cycles: 'zWaveCycles',
+  z_wave_max_amp: 'zWaveMaxAmp',
+  z_wave_profile: 'zWaveProfile',
 
   // Base
   base_layer_height: 'baseLayerHeight',
@@ -106,6 +109,7 @@ function coerceValue(v) {
   if (v === 'never' || v === 'every_turn' || v === 'every_n') return v;
   if (v === 'ccw' || v === 'cw') return v;
   if (v === 'vase' || v === 'blob') return v;
+  if (v === 'off' || v === 'auto' || v === 'manual') return v;
   if (v === 'concentric' || v === 'rectilinear' || v === 'grid') return v;
   const n = Number(v);
   return Number.isFinite(n) ? n : v;
@@ -136,7 +140,24 @@ export function parseGcodeSettings(gcodeText) {
     settings.phaseOffsetPerTurn = settings.interference * Math.PI;
   }
 
+  // Extract custom start/end G-code from tagged blocks
+  settings.customStartGcode = extractTaggedBlock(gcodeText, '; --- custom start gcode ---', '; --- end custom start gcode ---');
+  settings.customEndGcode = extractTaggedBlock(gcodeText, '; --- custom end gcode ---', '; --- end custom end gcode ---');
+
   return settings;
+}
+
+/**
+ * Extract text between two tag lines (exclusive of the tags themselves).
+ * Returns the trimmed content or '' if the tags are not found.
+ */
+function extractTaggedBlock(text, openTag, closeTag) {
+  const startIdx = text.indexOf(openTag);
+  if (startIdx === -1) return '';
+  const afterOpen = startIdx + openTag.length;
+  const endIdx = text.indexOf(closeTag, afterOpen);
+  if (endIdx === -1) return '';
+  return text.substring(afterOpen, endIdx).trim();
 }
 
 export function parseGcodeForVisualization(gcodeText, settings = {}) {

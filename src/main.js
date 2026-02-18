@@ -1,9 +1,9 @@
 // src/main.js
-import { fmt } from './utils/math.js';
+import { fmt, clamp } from './utils/math.js';
 import { GCodeBuilder } from './gcode/gcodeBuilder.js';
 import { parseGcodeSettings, parseGcodeForVisualization, parseExternalGcode } from './gcode/gcodeParser.js';
 import { initThree, updatePreview, setSimSpeed } from './preview/threePreview.js';
-import { readParams, resetDefaults, clampHoleDiameter, loadSettingsToUI, syncWallModeUI, syncBlobVaseLayersUI, syncDirAlternationUI } from './ui/params.js';
+import { readParams, resetDefaults, clampHoleDiameter, loadSettingsToUI, syncWallModeUI, syncBlobVaseLayersUI, syncDirAlternationUI, syncZWaveMode } from './ui/params.js';
 import { downloadGcode, saveDownloadFilename, restoreDownloadFilename, copyGcode, switchTab, toggleSection } from './ui/actions.js';
 import { updateStatistics, toggleStatsPanel } from './ui/stats.js';
 import {
@@ -16,6 +16,7 @@ import {
   exportFeatureLibrary,
   importFeatureLibrary,
 } from './ui/presets.js';
+import { ProfileEditor, serializeProfile, deserializeProfile } from './ui/profileEditor.js';
 
 // ============================================================
 // APP ACTIONS
@@ -26,6 +27,7 @@ let lastGenerateTimeMs = 0;
 let autoGenerateEnabled = true;
 let autoGenerateTimer = null;
 let AUTO_GENERATE_DELAY = 500;
+let profileEditor = null; // Z-wave profile editor instance
 const SLOW_GENERATION_THRESHOLD = 15000; // 15 seconds
 const STORAGE_KEYS = {
   settings: 'gwtf.savedSettings',
@@ -44,8 +46,10 @@ const HELP_TEXT_BY_ID = {
   interference: 'Offsets wave phase between layers. Higher spreads peaks; lower aligns ripples vertically.',
   slow_down_time_ms: 'Pause at each wave peak and valley. Longer dwell improves cooling but can cause blobs.',
   slow_down_length_mm: 'Deceleration distance into peaks and valleys. Longer ramps smooth speed changes but slow print.',
-  z_wave_amp: 'Vertical modulation amplitude. Adds height variation; larger makes stronger Z ripples.',
-  z_wave_cycles: 'Number of Z waves over the height. Higher makes more vertical undulations.',
+  z_wave_mode: 'Z-wave contour mode. Off disables contour; Auto uses sinusoidal settings; Manual lets you draw a custom radial profile.',
+  z_wave_amp: 'Sinusoidal amplitude in Auto mode. Positive bows outward, negative bows inward.',
+  z_wave_cycles: 'Number of sine wave cycles over the full height in Auto mode.',
+  z_wave_max_amp: 'Maximum radial offset for Manual mode profile. Defines the scale of the drawn curve.',
   base_pattern: 'Base infill pattern. Concentric follows spiral; rectilinear or grid add stiffness but increase travel.',
   base_layer_height: 'Base layer height. Thicker is faster but less detailed; thinner improves adhesion.',
   base_line_width: 'Base line width. Wider lines increase strength but can over-extrude if too high.',
@@ -99,8 +103,8 @@ const HELP_TEXT_BY_ID = {
   absolute_e: 'Use absolute extrusion (M82). Must match firmware expectations.',
   print_accel: 'Print acceleration in mm/s². Lower gives smoother surfaces; higher is faster.',
   travel_accel: 'Travel acceleration in mm/s². Higher speeds up non-print moves.',
-  custom_start_gcode: 'Commands inserted before printing. Use for homing, heating, and priming.',
-  custom_end_gcode: 'Commands appended after printing. Use for cooldown and parking.',
+  custom_start_gcode: 'Extra commands inserted after default start G-code (temps, homing, fan) and before base layers.',
+  custom_end_gcode: 'Extra commands inserted before default end G-code (cooldown, parking).',
 };
 const HELP_TIP_ID_BY_INPUT = {
   hole_d: 'hole-hint',
@@ -150,6 +154,9 @@ export function generate() {
         // 3D preview + stats panel
         updatePreview(builder);
         updateStatistics(builder, params);
+
+        // Keep profile editor geometry in sync
+        updateProfileEditorGeometry();
 
         saveCurrentSettings();
 
@@ -214,6 +221,7 @@ function parseAndLoadGcode(gcodeText) {
       if (settings) {
         // Our generated format → load settings back into UI
         loadSettingsToUI(settings);
+        syncProfileEditorFromInput();
         setStatus('ready', 'Settings loaded from G-code');
 
         // Visualization
@@ -251,6 +259,109 @@ function parseAndLoadGcode(gcodeText) {
 }
 
 // ============================================================
+// PROFILE EDITOR (Z-Wave Manual Mode)
+// ============================================================
+
+function initProfileEditor() {
+  const canvas = document.getElementById('profile-editor-canvas');
+  if (!canvas) return;
+
+  profileEditor = new ProfileEditor(canvas, {
+    onChange: (points) => {
+      // Serialize points into the hidden input for readParams
+      const serialized = serializeProfile(points);
+      const input = document.getElementById('z_wave_profile');
+      if (input) input.value = serialized;
+      scheduleAutoGenerate();
+    },
+  });
+
+  // Restore profile from hidden input if present
+  const profileStr = document.getElementById('z_wave_profile')?.value;
+  if (profileStr) {
+    const pts = deserializeProfile(profileStr);
+    if (pts) profileEditor.setPoints(pts);
+  }
+
+  // Sync geometry from current params
+  updateProfileEditorGeometry();
+}
+
+function updateProfileEditorGeometry() {
+  if (!profileEditor) return;
+  const outerD = parseFloat(document.getElementById('outer_d')?.value) || 100;
+  const topD = parseFloat(document.getElementById('top_outer_d')?.value) || outerD;
+  const height = parseFloat(document.getElementById('height')?.value) || 150;
+  const maxAmp = parseFloat(document.getElementById('z_wave_max_amp')?.value) || 10;
+  profileEditor.setGeometry(outerD / 2, topD / 2, height, maxAmp);
+}
+
+function resetProfileEditor() {
+  if (!profileEditor) return;
+  profileEditor.reset();
+  const input = document.getElementById('z_wave_profile');
+  if (input) input.value = '';
+  scheduleAutoGenerate();
+}
+
+function generateSineProfile() {
+  if (!profileEditor) return;
+  const amp = parseFloat(document.getElementById('z_wave_amp')?.value) || 0;
+  const cycles = parseFloat(document.getElementById('z_wave_cycles')?.value) || 1;
+  const maxAmp = parseFloat(document.getElementById('z_wave_max_amp')?.value) || 10;
+  const ampFraction = clamp(amp / maxAmp, -1, 1);
+  profileEditor.generateSine(Math.max(0.5, cycles), ampFraction || 0.5);
+  const input = document.getElementById('z_wave_profile');
+  if (input) input.value = serializeProfile(profileEditor.getPoints());
+  scheduleAutoGenerate();
+}
+
+function mirrorProfile() {
+  if (!profileEditor) return;
+  const pts = profileEditor.getPoints();
+  // Mirror: negate all r values
+  const mirrored = pts.map(p => ({ t: p.t, r: -p.r }));
+  profileEditor.setPoints(mirrored);
+  const input = document.getElementById('z_wave_profile');
+  if (input) input.value = serializeProfile(profileEditor.getPoints());
+  scheduleAutoGenerate();
+}
+
+function smoothProfile() {
+  if (!profileEditor) return;
+  const pts = profileEditor.getPoints();
+  if (pts.length < 3) return;
+  // Simple smoothing: average each interior point with its neighbors
+  const smoothed = pts.map((p, i) => {
+    if (i === 0 || i === pts.length - 1) return { ...p };
+    return {
+      t: p.t,
+      r: (pts[i - 1].r + p.r + pts[i + 1].r) / 3,
+    };
+  });
+  profileEditor.setPoints(smoothed);
+  const input = document.getElementById('z_wave_profile');
+  if (input) input.value = serializeProfile(profileEditor.getPoints());
+  scheduleAutoGenerate();
+}
+
+/**
+ * Sync the ProfileEditor canvas from the hidden input value.
+ * Call after loadSettingsToUI to ensure the editor reflects imported/restored profiles.
+ */
+function syncProfileEditorFromInput() {
+  if (!profileEditor) return;
+  const profileStr = document.getElementById('z_wave_profile')?.value;
+  if (profileStr) {
+    const pts = deserializeProfile(profileStr);
+    if (pts) profileEditor.setPoints(pts);
+  } else {
+    profileEditor.reset();
+  }
+  updateProfileEditorGeometry();
+}
+
+// ============================================================
 // EXPOSE TO GLOBAL SCOPE (inline onclick/oninput in HTML)
 // ============================================================
 
@@ -269,12 +380,20 @@ window.clampHoleDiameter = clampHoleDiameter;
 window.syncWallModeUI = syncWallModeUI;
 window.syncBlobVaseLayersUI = syncBlobVaseLayersUI;
 window.syncDirAlternationUI = syncDirAlternationUI;
+window.syncZWaveMode = syncZWaveMode;
 window.setSimSpeed = setSimSpeed;
 window.selectDesignTab = selectDesignTab;
 window.applyCustomFeatureFromEditor = applyCustomFeatureFromEditor;
 window.saveCustomFeature = saveCustomFeature;
 window.exportFeatureLibrary = exportFeatureLibrary;
 window.importFeatureLibrary = importFeatureLibrary;
+window.resetProfileEditor = resetProfileEditor;
+window.generateSineProfile = generateSineProfile;
+window.mirrorProfile = mirrorProfile;
+window.smoothProfile = smoothProfile;
+window.updateProfileEditorGeometry = updateProfileEditorGeometry;
+window.syncProfileEditorFromInput = syncProfileEditorFromInput;
+window.toggleProfileEditorFullscreen = () => { if (profileEditor) profileEditor.toggleFullscreen(); };
 
 // ============================================================
 // INIT
@@ -287,6 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initHelpTips();
   initDesignPresets({ skipAutoApply: restored });
   initThree();
+  initProfileEditor();
 
   // Restore auto-generate preferences
   const savedAutoGen = localStorage.getItem('gwtf.autoGenerate');
@@ -508,6 +628,7 @@ function startNewProject({ transferMode }) {
       if (previous && previous[key] !== undefined) transferSettings[key] = previous[key];
     });
     loadSettingsToUI(transferSettings);
+    syncProfileEditorFromInput();
   }
 
   const vaseTab = document.querySelector('.design-subtab[data-design="vase"]')

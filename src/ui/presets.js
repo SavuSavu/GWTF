@@ -24,8 +24,11 @@ const DEFAULT_PRESETS = [
       waveCount: 14,
       waveShape: 0.2,
       interference: 1,
+      zWaveMode: 'off',
       zWaveAmp: 0,
       zWaveCycles: 0,
+      zWaveMaxAmp: 10,
+      zWaveProfile: '',
       layerHeight: 0.45,
       lineWidth: 1.9,
       printSpeed: 25,
@@ -48,8 +51,11 @@ const DEFAULT_PRESETS = [
       waveCount: 20,
       waveShape: 0.35,
       interference: 0.85,
+      zWaveMode: 'auto',
       zWaveAmp: 1.5,
       zWaveCycles: 2,
+      zWaveMaxAmp: 10,
+      zWaveProfile: '',
       layerHeight: 0.5,
       lineWidth: 1.4,
       printSpeed: 28,
@@ -72,8 +78,11 @@ const DEFAULT_PRESETS = [
       waveCount: 0,
       waveShape: 0,
       interference: 0,
+      zWaveMode: 'off',
       zWaveAmp: 0,
       zWaveCycles: 0,
+      zWaveMaxAmp: 10,
+      zWaveProfile: '',
 
       // Standard 0.4 nozzle base
       baseLayerHeight: 0.2,
@@ -161,6 +170,7 @@ export function applyPresetById(id, { generateAfter = true } = {}) {
   if (!preset) return;
 
   loadSettingsToUI(preset.settings || {});
+  if (typeof window.syncProfileEditorFromInput === 'function') window.syncProfileEditorFromInput();
   localStorage.setItem(STORAGE_KEYS.activeDesign, id);
   setStatus(`Design preset applied: ${preset.name}`);
 
@@ -233,10 +243,10 @@ function highlightModeSettings(modeId) {
   }
 
   if (modeId === 'imvase') {
-    // Show blob section, hide wave sections
+    // Show blob section, hide wave section; Z-wave stays visible for blob mode
     if (blobSec) { blobSec.style.display = ''; blobSec.classList.add('mode-active-section'); }
     if (waveSec) waveSec.style.display = 'none';
-    if (zwaveSec) zwaveSec.style.display = 'none';
+    if (zwaveSec) zwaveSec.style.display = '';
   } else {
     // Show wave sections, hide blob section
     if (blobSec) blobSec.style.display = 'none';
@@ -282,6 +292,7 @@ export function applyCustomFeatureFromEditor() {
       return;
     }
     loadSettingsToUI(parsed.settings);
+    if (typeof window.syncProfileEditorFromInput === 'function') window.syncProfileEditorFromInput();
     setStatus('Custom draft applied.');
     if (typeof window.generate === 'function') window.generate();
   } catch (err) {
@@ -417,6 +428,7 @@ export function restoreSavedSettings() {
     const parsed = JSON.parse(raw);
     if (!parsed) return false;
     loadSettingsToUI(parsed);
+    if (typeof window.syncProfileEditorFromInput === 'function') window.syncProfileEditorFromInput();
     return true;
   } catch (err) {
     console.warn('Failed to restore settings:', err);

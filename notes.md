@@ -248,6 +248,30 @@ This symmetry is intentional.
 
 (Add future changes below 👇)
 
+### Z-Wave Contour Overhaul + Manual Profile Editor + Blob Mode Support
+- **Replaced simple Z-wave controls** with a three-mode system:
+  - **Off**: No radial contour modulation (default).
+  - **Auto (Sine Wave)**: Existing sinusoidal `zWaveAmp` × `sin(zWaveCycles × 2π × t)` — cycles and amplitude controls.
+  - **Manual (Draw Profile)**: Interactive 2D side-view canvas for drawing custom radial profiles.
+- **Added interactive profile editor** (`src/ui/profileEditor.js`):
+  - Canvas-based 2D side-view of the cylinder with height on Y-axis and radial offset on X-axis.
+  - Double-click to add control points, double-click to remove, drag to adjust.
+  - Catmull-Rom spline interpolation between control points for smooth curves.
+  - Action buttons: Reset (flat), From Auto (generate sine from auto params), Mirror (negate), Smooth (average neighbors).
+  - Theme-aware rendering using CSS variables, responsive via ResizeObserver.
+  - Serialized as compact `t:r,t:r,...` format in G-code header for round-trip support.
+- **Extended Z-wave contour to blob mode**: Both vase and blob walls now use a shared `_zWaveOffset(t)` method.
+  - In blob mode, each layer's base radius is modulated by the Z-wave profile at that layer's height fraction.
+  - Z-wave section is now visible for both vase and blob modes (previously hidden in blob mode).
+- **New parameters**:
+  - `z_wave_mode` (`off` / `auto` / `manual`, default `off`)
+  - `z_wave_max_amp` (max amplitude scale for manual mode, 1–50 mm, default `10`)
+  - `z_wave_profile` (serialized control points string)
+- **Full round-trip support**: G-code header emission, parser mapping (`off`/`auto`/`manual` string coercion), UI read/default/load, preset defaults.
+- **Updated presets**: Lampshade preset now uses `zWaveMode: 'auto'`. Vase and Blob presets default to `zWaveMode: 'off'`.
+- **CSS additions**: Profile editor wrap, canvas, hint text, action button row.
+- **No existing behavior broken**: When `z_wave_mode` is `'off'`, behavior is identical to previous (no Z-wave offset).
+
 ---
 
 ## Research: How Real Slicers Handle Vase Mode Base → Spiral Transition
@@ -390,3 +414,30 @@ Neither slicer has special vase-mode logic for nozzle size in base layers. Inste
 | XY smoothing between spiral layers | Low | Interpolate XY toward previous layer's contour (cosmetic improvement) |
 | Flow taper on last layer | Low | Ramp E from 1.0 → 0.25 + coast for clean top |
 | Top surface pattern on last base layer | Low | Use monotonic/concentric fill for the final flat layer |
+
+---
+
+## Custom Start / End G-code Behavior (2026-02-18)
+
+### Problem
+Previously, entering custom start G-code **replaced** all default start commands (G21, temperatures, homing, acceleration, fan). This meant the printer wouldn't home, heat, or set basic modes when custom G-code was used. The same issue affected custom end G-code — it replaced the default shutdown sequence.
+
+### Solution
+Custom G-code now **supplements** the defaults instead of replacing them:
+
+- **Start sequence order:**
+  1. `; --- start gcode ---` — default commands (G21, G90, M82/M83, temps, G28, accel, fan)
+  2. `; --- custom start gcode ---` / `; --- end custom start gcode ---` — user block (optional)
+  3. `; --- base layers (...) ---` — base layer printing begins
+
+- **End sequence order:**
+  1. `; --- custom end gcode ---` / `; --- end custom end gcode ---` — user block (optional)
+  2. `; --- end gcode ---` — default shutdown (heaters off, fan off, retract Z, park, motors off)
+
+### Tagged blocks for round-tripping
+The parser (`gcodeParser.js`) now extracts custom G-code from the tagged blocks on import, so reimporting a generated file correctly restores both the settings header **and** any custom G-code the user added.
+
+### Files changed
+- `src/gcode/gcodeBuilder.js` — `header()` and `footer()` always emit defaults; custom G-code appended with dedicated tags
+- `src/gcode/gcodeParser.js` — `parseGcodeSettings()` + new `extractTaggedBlock()` helper
+- `src/main.js` — Updated tooltip descriptions for custom G-code fields
