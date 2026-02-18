@@ -145,6 +145,11 @@ export class GCodeBuilder {
     this.w(`; blob_transition_path_increase=${p.blobTransitionPathIncrease || 0}`);
     this.w(`; blob_layer_transition_offset=${p.blobLayerTransitionOffset || 0}`);
     this.w('; ');
+    this.w('; TOOLPATH DIRECTION:');
+    this.w(`; dir_alternation=${p.dirAlternation || 'never'}`);
+    this.w(`; dir_alternation_n=${p.dirAlternationN || 2}`);
+    this.w(`; start_direction=${p.startDirection || 'ccw'}`);
+    this.w('; ');
     this.w('; VASE LAYERS ON BLOBS:');
     this.w(`; blob_vase_layers=${p.blobVaseLayers}`);
     this.w(`; blob_vl_every_n=${p.blobVlEveryN}`);
@@ -390,6 +395,25 @@ export class GCodeBuilder {
     // Simple seeded PRNG: multiply turn index by large prime, take fractional part
     const seamRandom = (turn) => ((turn * 2654435761) % 4294967296) / 4294967296 * 2 * Math.PI;
 
+    // --- Smooth seam offset function (continuous – no per-turn step) ---
+    const seamOffsetFn = (continuousTurn) => {
+      if (seamAlign === 'staggered') return continuousTurn * goldenAngle;
+      if (seamAlign === 'random') {
+        const f = Math.floor(continuousTurn);
+        const frac = continuousTurn - f;
+        // Smoothstep interpolation for seamless blending
+        const t = frac * frac * (3 - 2 * frac);
+        return lerp(seamRandom(f), seamRandom(f + 1), t);
+      }
+      return 0; // aligned
+    };
+
+    // --- Direction alternation ---
+    const baseDir = (p.startDirection === 'cw') ? -1 : 1;
+    let flipN = 0; // 0 = never flip
+    if (p.dirAlternation === 'every_turn') flipN = 1;
+    else if (p.dirAlternation === 'every_n') flipN = Math.max(1, p.dirAlternationN || 1);
+
     // --- Wave amplitude ramp (matches gradual layer transition) ---
     const waveRampTurns = p.gradualLayers > 0 ? p.gradualLayers : 0;
     const waveParams = { ...p }; // mutable copy – only waveAmp changes
@@ -403,13 +427,7 @@ export class GCodeBuilder {
     const gradualBaseE = extrusionPerMm(p.lineWidth, p.baseLayerHeight, p.filamentD, p.flow);
 
     // Initial seam offset for the starting position (turn 0)
-    let startSeamOffset = 0;
-    const startTurnIdx = p.baseLayers;
-    if (seamAlign === 'staggered') {
-      startSeamOffset = startTurnIdx * goldenAngle;
-    } else if (seamAlign === 'random') {
-      startSeamOffset = seamRandom(startTurnIdx);
-    }
+    const startSeamOffset = seamOffsetFn(p.baseLayers);
 
     // Start at flat wall radius (base layers are circular, no waves)
     this.move(
@@ -418,47 +436,50 @@ export class GCodeBuilder {
       startZ, p.travelSpeed
     );
 
+    // Fully accumulated Z – eliminates discontinuity at gradual → wall transition
     let accumulatedZ = 0;
+    // Accumulated visual angle – supports direction alternation
+    let visualAngle = 0;
+    let prevTheta = 0;
 
     for (let i = 1; i <= steps; i++) {
       const theta = totalTheta * (i / steps);
+      const dTheta = theta - prevTheta;
       const currentTurn = theta / (2 * Math.PI);
 
-      // --- Z: continuous spiral + gradual layer-height transition ---
-      let z;
+      // --- Z: fully accumulated for seamless transitions ---
+      // Always accumulate per-segment to avoid any Z discontinuity.
       let easedProgress = 1;
+      let currentLayerHeight;
       if (p.gradualLayers > 0 && currentTurn < p.gradualLayers) {
         const transitionProgress = currentTurn / p.gradualLayers;
         easedProgress = transitionProgress < 0.5
           ? 4 * transitionProgress * transitionProgress * transitionProgress
           : 1 - Math.pow(-2 * transitionProgress + 2, 3) / 2;
-
-        const currentLayerHeight = lerp(p.baseLayerHeight, p.layerHeight, easedProgress);
-        const thetaIncrement = totalTheta / steps;
-        accumulatedZ += (currentLayerHeight / (2 * Math.PI)) * thetaIncrement;
-        z = startZ + accumulatedZ;
+        currentLayerHeight = lerp(p.baseLayerHeight, p.layerHeight, easedProgress);
       } else {
-        if (p.gradualLayers > 0) {
-          const gradualHeightGained = p.gradualLayers * ((p.baseLayerHeight + p.layerHeight) / 2);
-          z = startZ + gradualHeightGained + (currentTurn - p.gradualLayers) * p.layerHeight;
-        } else {
-          z = startZ + currentTurn * p.layerHeight;
-        }
+        currentLayerHeight = p.layerHeight;
       }
+      accumulatedZ += (currentLayerHeight / (2 * Math.PI)) * dTheta;
+      let z = startZ + accumulatedZ;
       if (z > endZ) z = endZ;
 
-      const turnIndex = Math.floor(currentTurn) + p.baseLayers;
+      // --- Direction alternation ---
+      let dir = baseDir;
+      if (flipN > 0) {
+        const flipPeriod = Math.floor(currentTurn / flipN);
+        if (flipPeriod % 2 === 1) dir = -dir;
+      }
+      visualAngle += dir * dTheta;
+
+      // Continuous turn index (float) – eliminates discrete phase jump at turn boundaries
+      const continuousTurnIdx = currentTurn + p.baseLayers;
+
+      // --- Seam offset (smooth, continuous) ---
+      const adjustedAngle = visualAngle + seamOffsetFn(continuousTurnIdx);
+
       const t = (z - startZ) / Math.max(1e-9, endZ - startZ);
       let baseR = lerp(bottomR, topR, t);
-
-      // --- Seam offset applied to theta for this step ---
-      let seamOffset = 0;
-      if (seamAlign === 'staggered') {
-        seamOffset = turnIndex * goldenAngle;
-      } else if (seamAlign === 'random') {
-        seamOffset = seamRandom(turnIndex);
-      }
-      const adjustedTheta = theta + seamOffset;
 
       if (p.zWaveAmp !== 0) {
         baseR += p.zWaveAmp * Math.sin(p.zWaveCycles * 2 * Math.PI * t);
@@ -471,7 +492,8 @@ export class GCodeBuilder {
       } else {
         waveParams.waveAmp = p.waveAmp;
       }
-      const r = waveRadius(baseR, adjustedTheta, turnIndex, waveParams);
+      // Use continuous turnIdx for phase → smooth wave transition, no seam
+      const r = waveRadius(baseR, adjustedAngle, continuousTurnIdx, waveParams);
 
       // --- Dynamic E-rate: gradual height + flow ramp ---
       let eRate;
@@ -488,7 +510,8 @@ export class GCodeBuilder {
       // --- Slow-down near wave peaks ---
       let speed = p.printSpeed;
       if (p.slowDownLengthMm > 0 && p.slowDownTimeMs > 0) {
-        const phase = p.waveCount * theta + turnIndex * p.phaseOffsetPerTurn;
+        // Match the same wave angle that waveRadius computes
+        const phase = p.waveCount * adjustedAngle + continuousTurnIdx * p.phaseOffsetPerTurn;
         const distToPeak = Math.abs(((phase - Math.PI / 2 + Math.PI) % (2 * Math.PI)) - Math.PI);
         const phaseThreshold = (p.slowDownLengthMm / r) * p.waveCount;
         if (distToPeak < phaseThreshold) {
@@ -496,9 +519,11 @@ export class GCodeBuilder {
         }
       }
 
-      const x = cx + r * Math.cos(adjustedTheta);
-      const y = cy + r * Math.sin(adjustedTheta);
+      const x = cx + r * Math.cos(adjustedAngle);
+      const y = cy + r * Math.sin(adjustedAngle);
       this.extrudeTo(x, y, z, speed);
+
+      prevTheta = theta;
     }
   }
 
@@ -599,7 +624,7 @@ export class GCodeBuilder {
     return [...order.slice(idx), ...order.slice(0, idx)];
   }
 
-  pickBlobLayerStartIndex(order, dotsPerRev, layerAngleOffset, startRadius, prevLayerLastTop, transitionOffsetMm, cx, cy) {
+  pickBlobLayerStartIndex(order, dotsPerRev, layerAngleOffset, startRadius, prevLayerLastTop, transitionOffsetMm, cx, cy, dirSign = 1) {
     if (!prevLayerLastTop || !Array.isArray(order) || order.length === 0) return 0;
 
     const candidates = [];
@@ -607,7 +632,7 @@ export class GCodeBuilder {
 
     for (let i = 0; i < order.length; i++) {
       const dot = order[i];
-      const theta = (2 * Math.PI * dot / dotsPerRev) + layerAngleOffset;
+      const theta = dirSign * (2 * Math.PI * dot / dotsPerRev) + layerAngleOffset;
       const x = cx + startRadius * Math.cos(theta);
       const y = cy + startRadius * Math.sin(theta);
       const distance = Math.hypot(x - prevLayerLastTop.x, y - prevLayerLastTop.y);
@@ -736,6 +761,12 @@ export class GCodeBuilder {
     // Blob fan
     this.w(`M106 S${Math.round(clamp(p.blobFanPercent, 0, 100) * 255 / 100)} ; blob fan`);
 
+    // --- Direction alternation for blob layers ---
+    const blobBaseDir = (p.startDirection === 'cw') ? -1 : 1;
+    let blobFlipN = 0;
+    if (p.dirAlternation === 'every_turn') blobFlipN = 1;
+    else if (p.dirAlternation === 'every_n') blobFlipN = Math.max(1, p.dirAlternationN || 1);
+
     let prevLayerLastTop = null;
     const layerOrderBase = this.buildBlobLayerOrder(p.blobDotsPerRev, stride);
 
@@ -747,6 +778,13 @@ export class GCodeBuilder {
       // Rotational offset per layer for staggered pattern
       const layerAngleOffset = layer * p.blobLayerOffset * (2 * Math.PI / p.blobDotsPerRev);
 
+      // Direction for this layer
+      let layerDirSign = blobBaseDir;
+      if (blobFlipN > 0) {
+        const flipPeriod = Math.floor(layer / blobFlipN);
+        if (flipPeriod % 2 === 1) layerDirSign = -layerDirSign;
+      }
+
       const startRadius = r + offsetStart;
       const startIdx = this.pickBlobLayerStartIndex(
         layerOrderBase,
@@ -756,11 +794,12 @@ export class GCodeBuilder {
         prevLayerLastTop,
         layerTransitionOffset,
         cx,
-        cy
+        cy,
+        layerDirSign
       );
       const layerOrder = this.rotateBlobLayerOrder(layerOrderBase, startIdx);
 
-      this.w(`; blob layer ${layer + 1}/${nLayers} z=${fmt(baseZ)} hops=${hops} start_idx=${startIdx}`);
+      this.w(`; blob layer ${layer + 1}/${nLayers} z=${fmt(baseZ)} hops=${hops} start_idx=${startIdx} dir=${layerDirSign > 0 ? 'CCW' : 'CW'}`);
 
       let layerLastTop = null;
 
@@ -768,7 +807,7 @@ export class GCodeBuilder {
       // last-layer to next-layer transition distance can be controlled.
       for (let orderIdx = 0; orderIdx < layerOrder.length; orderIdx++) {
           const dot = layerOrder[orderIdx];
-          const theta = (2 * Math.PI * dot / p.blobDotsPerRev) + layerAngleOffset;
+          const theta = layerDirSign * (2 * Math.PI * dot / p.blobDotsPerRev) + layerAngleOffset;
 
           // --- Blob path with radial offsets and wave ---
           // Start position (at baseZ): radius shifted by offsetStart

@@ -77,6 +77,11 @@ const SNAKE_TO_CAMEL = {
   blob_transition_path_increase: 'blobTransitionPathIncrease',
   blob_layer_transition_offset: 'blobLayerTransitionOffset',
 
+  // Toolpath direction
+  dir_alternation: 'dirAlternation',
+  dir_alternation_n: 'dirAlternationN',
+  start_direction: 'startDirection',
+
   // Vase layers on top of blobs
   blob_vase_layers: 'blobVaseLayers',
   blob_vl_every_n: 'blobVlEveryN',
@@ -98,6 +103,10 @@ function coerceValue(v) {
   if (v === 'false') return false;
   if (v === 'center' || v === 'corner') return v;
   if (v === 'aligned' || v === 'staggered' || v === 'random') return v;
+  if (v === 'never' || v === 'every_turn' || v === 'every_n') return v;
+  if (v === 'ccw' || v === 'cw') return v;
+  if (v === 'vase' || v === 'blob') return v;
+  if (v === 'concentric' || v === 'rectilinear' || v === 'grid') return v;
   const n = Number(v);
   return Number.isFinite(n) ? n : v;
 }

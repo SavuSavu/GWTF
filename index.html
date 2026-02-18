@@ -426,6 +426,29 @@
             </select>
           </div>
         </div>
+        <div class="subsection-divider"></div>
+        <div class="subsection-label"><i data-feather="repeat"></i> Toolpath Direction</div>
+        <div class="field-row">
+          <div class="field">
+            <label>Direction Alternation</label>
+            <select id="dir_alternation" onchange="syncDirAlternationUI()">
+              <option value="never">Never (same direction)</option>
+              <option value="every_turn">Every Turn</option>
+              <option value="every_n">Every N Turns</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Start Direction</label>
+            <select id="start_direction">
+              <option value="ccw">Counter-clockwise (CCW)</option>
+              <option value="cw">Clockwise (CW)</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row" id="dir-alternation-n-row" style="display:none;">
+          <div class="field"><label>Flip Every N Turns</label><input type="number" id="dir_alternation_n" value="2" min="1" max="100" step="1"></div>
+          <div class="field"></div>
+        </div>
       </div>
     </div>
 

@@ -95,6 +95,11 @@ export function readParams() {
     blobTransitionPathIncrease: clamp(val('blob_transition_path_increase'), 0, 50),
     blobLayerTransitionOffset: clamp(val('blob_layer_transition_offset'), -5, 5),
 
+    // Toolpath direction
+    dirAlternation: document.getElementById('dir_alternation')?.value || 'never',
+    dirAlternationN: Math.max(1, intVal('dir_alternation_n')),
+    startDirection: document.getElementById('start_direction')?.value || 'ccw',
+
     // Vase layers on top of blobs
     blobVaseLayers: (document.getElementById('blob_vase_layers')?.value || 'no') === 'yes',
     blobVlEveryN: Math.max(1, intVal('blob_vl_every_n')),
@@ -186,6 +191,11 @@ export function resetDefaults() {
     blob_transition_path_increase: 0,
     blob_layer_transition_offset: 0,
 
+    // Toolpath direction
+    dir_alternation: 'never',
+    dir_alternation_n: 2,
+    start_direction: 'ccw',
+
     // Vase layers on top of blobs
     blob_vase_layers: 'no',
     blob_vl_every_n: 1,
@@ -207,6 +217,8 @@ export function resetDefaults() {
   document.getElementById('base_pattern').value = 'concentric';
   if (document.getElementById('wall_mode')) document.getElementById('wall_mode').value = 'vase';
   if (document.getElementById('seam_align')) document.getElementById('seam_align').value = 'aligned';
+  if (document.getElementById('dir_alternation')) document.getElementById('dir_alternation').value = 'never';
+  if (document.getElementById('start_direction')) document.getElementById('start_direction').value = 'ccw';
   document.getElementById('custom_start_gcode').value = '';
   document.getElementById('custom_end_gcode').value = '';
 
@@ -218,6 +230,7 @@ export function resetDefaults() {
   setFanLabel(100);
 
   clampHoleDiameter();
+  syncDirAlternationUI();
 }
 
 export function loadSettingsToUI(settings) {
@@ -287,6 +300,9 @@ export function loadSettingsToUI(settings) {
     blobTransitionCurvature: 'blob_transition_curvature',
     blobTransitionPathIncrease: 'blob_transition_path_increase',
     blobLayerTransitionOffset: 'blob_layer_transition_offset',
+    dirAlternation: 'dir_alternation',
+    dirAlternationN: 'dir_alternation_n',
+    startDirection: 'start_direction',
     blobVaseLayers: 'blob_vase_layers',
     blobVlEveryN: 'blob_vl_every_n',
     blobVlCount: 'blob_vl_count',
@@ -321,6 +337,7 @@ export function loadSettingsToUI(settings) {
   // Sync wall-mode section visibility
   syncWallModeUI();
   syncBlobVaseLayersUI();
+  syncDirAlternationUI();
 
   clampHoleDiameter();
 }
@@ -341,4 +358,11 @@ export function syncBlobVaseLayersUI() {
   const enabled = document.getElementById('blob_vase_layers')?.value === 'yes';
   const opts = document.getElementById('blob-vase-layers-opts');
   if (opts) opts.style.display = enabled ? '' : 'none';
+}
+
+/** Show/hide direction alternation N input based on mode */
+export function syncDirAlternationUI() {
+  const mode = document.getElementById('dir_alternation')?.value || 'never';
+  const nRow = document.getElementById('dir-alternation-n-row');
+  if (nRow) nRow.style.display = mode === 'every_n' ? '' : 'none';
 }

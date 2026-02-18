@@ -84,6 +84,11 @@ UI Inputs  →  params.js  →  main.js  →  GCodeBuilder  →  G-code + Previe
 - **Layer Height / Line Width / Flow** — Separate settings for base and wall
 - **Seam Alignment** — Aligned, staggered (golden angle), or random
 
+### Toolpath Direction
+- **Direction Alternation** — Never (same direction), Every Turn, or Every N Turns
+- **Start Direction** — Counter-clockwise (CCW) or Clockwise (CW)
+- **Flip Every N Turns** — Number of turns before reversing (when using Every N mode)
+
 ### Blob Mode (IM-Vase)
 - **Dots per Revolution** — Blob density around circumference
 - **Dot Height / Extrusion / Dwell** — Blob geometry and timing
@@ -148,14 +153,22 @@ src/
 ## Key Algorithms
 
 ### Spiral Wall Generation
-- Z increments continuously: `z_per_segment = layer_height / segments_per_rev`
+- Z is fully accumulated per-segment: `accumulatedZ += (currentLayerHeight / 2π) * dTheta`
 - Gradual transition uses cubic ease-in-out from `baseLayerHeight` to `layerHeight`
-- Flow ramps from 25% → 100% on the first revolution to prevent elephant's foot
+- No formula switch at the gradual→wall boundary — eliminates Z discontinuity
+- Flow ramps from ~25% → 100% on the first revolution to prevent elephant's foot
 
 ### Wave Distortion
 - Base shape: `sin(waveCount * theta + phase)`
 - Shape morphing: sine → `tanh` square approximation → `asin` triangle
-- Inter-layer interference: phase offset = `interference * π` per turn
+- Inter-layer interference: continuous float turn index eliminates phase jumps at turn boundaries
+- Seam offset uses smooth continuous functions (golden-angle linear / smoothstep-interpolated PRNG)
+
+### Direction Alternation
+- Angular step sign flips based on turn count: `dir = baseDir * (flipPeriod % 2 === 1 ? -1 : 1)`
+- Accumulated visual angle tracks continuous position: `visualAngle += dir * dTheta`
+- No travel moves or retractions at flip points — the spiral simply reverses direction
+- Blob mode flips direction per layer using the same N-turn logic
 
 ### Blob Mode
 - Blobs deposited at discrete angular positions around circumference

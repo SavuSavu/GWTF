@@ -229,6 +229,23 @@ This symmetry is intentional.
   - help-tip descriptions.
 - Updated Blob Settings UI with explicit controls for Layer Transition Offset, Transition Curvature, and Transition Path Increase.
 
+### Layer Seam Fix + Direction Alternation
+- **Fixed layer seam artifact** in vase mode caused by three discrete-step behaviors:
+  1. `Math.floor(currentTurn)` in `turnIndex` caused wave phase to jump at each integer turn boundary.
+  2. Z computation switched from accumulated (cubic-eased) to a linear-average formula at the gradual→wall transition, creating a Z discontinuity.
+  3. Seam offset (staggered/random) also stepped from floor-based turn index.
+- **Resolution**: replaced all per-turn discrete steps with continuous-float equivalents:
+  - Z is now fully accumulated per-segment throughout the entire spiral — no formula switch.
+  - Wave phase uses `continuousTurnIdx` (float) instead of `Math.floor`.
+  - Seam offset uses a smooth continuous function: linear golden-angle for staggered, smoothstep-interpolated PRNG for random.
+- **Implemented configurable toolpath direction alternation** for both vase and blob modes:
+  - New params: `dirAlternation` (never / every_turn / every_n), `dirAlternationN`, `startDirection` (ccw / cw).
+  - Vase mode: accumulated `visualAngle` with sign-flipped increments — continuous at flip boundaries, no travel/retraction.
+  - Blob mode: per-layer direction sign applied to angular blob positions.
+- **Added UI controls** in Print Settings > Toolpath Direction: Direction Alternation dropdown, Start Direction dropdown, conditional N input.
+- **Full round-trip support**: G-code header emission, parser mapping, UI read/default/load, help-tip descriptions.
+- **No existing presets broken** — new params default to `never` / `ccw` / `2`.
+
 (Add future changes below 👇)
 
 ---
