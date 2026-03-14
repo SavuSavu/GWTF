@@ -971,7 +971,20 @@ export class GCodeBuilder {
 
     const wallRBottom = outerR - p.lineWidth * 0.5;
     const wallRTop = topR - p.lineWidth * 0.5;
-    const innerR = holeR > 0 ? holeR + p.baseLineWidth * 0.5 : 0;
+
+    // Positive holeD → inner hole; negative holeD → base ring outside the vase
+    let innerR, baseOuterR;
+    if (p.holeD > 0) {
+      innerR = holeR + p.baseLineWidth * 0.5;
+      baseOuterR = wallRBottom;
+    } else if (p.holeD < 0) {
+      // Base starts at vase wall edge and extends outward; inside stays empty
+      innerR = wallRBottom - p.baseLineWidth * 0.5;
+      baseOuterR = wallRBottom + Math.abs(holeR);
+    } else {
+      innerR = 0;
+      baseOuterR = wallRBottom;
+    }
 
     this.header();
 
@@ -982,7 +995,7 @@ export class GCodeBuilder {
     this.ePerMm = this.baseEPerMm;
     for (let layer = 0; layer < p.baseLayers; layer++) {
       this.w(`; base layer ${layer + 1}/${p.baseLayers}`);
-      this.baseLayer(cx, cy, z, innerR, wallRBottom, layer);
+      this.baseLayer(cx, cy, z, innerR, baseOuterR, layer);
       z += p.baseLayerHeight;
     }
 

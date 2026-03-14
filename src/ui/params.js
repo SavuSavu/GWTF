@@ -143,16 +143,29 @@ export function clampHoleDiameter() {
   const holeD = parseFloat(document.getElementById('hole_d').value) || 0;
   const holeDInput = document.getElementById('hole_d');
 
-  // Ensure hole diameter doesn't exceed bottom diameter
-  if (holeD > outerD) {
-    holeDInput.value = outerD;
+  let clamped = false;
 
-    // Visual feedback
+  if (holeD > 0) {
+    // Positive: inner hole – must not exceed bottom diameter
+    if (holeD > outerD) {
+      holeDInput.value = outerD;
+      clamped = true;
+    }
+  } else if (holeD < 0) {
+    // Negative: extend base outside the vase – clamp to -outerD
+    if (holeD < -outerD) {
+      holeDInput.value = -outerD;
+      clamped = true;
+    }
+  }
+
+  if (clamped) {
     holeDInput.style.borderColor = 'var(--orange)';
     setTimeout(() => { holeDInput.style.borderColor = ''; }, 500);
   }
 
   holeDInput.setAttribute('max', outerD);
+  holeDInput.setAttribute('min', -outerD);
 }
 
 export function resetDefaults() {
